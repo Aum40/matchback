@@ -4,14 +4,15 @@ import z from "zod";
 /** ต้องตรงกับ RegisterDto ฝั่ง API (api/src/auth/dto/register.dto.ts) */
 export const registerSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
-  email: z.email("Invalid email address"),
+  email: z.string().email("Invalid email address"),
   password: passwordSchema,
+  accountType: z.enum(["CANDIDATE", "RECRUITER"]),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
-  email: z.email("Invalid email address"),
+  email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
 });
 
