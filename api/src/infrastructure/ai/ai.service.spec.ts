@@ -190,4 +190,73 @@ describe('AiService', () => {
       source: 'fallback',
     });
   });
+
+  describe('chat (MATCHBACK Bot)', () => {
+    const messages = [
+      { role: 'user' as const, content: 'Am I ready for this job?' },
+      { role: 'assistant' as const, content: 'Mostly, yes.' },
+      { role: 'user' as const, content: 'What should I learn first?' },
+    ];
+    const chatContext = { ...context };
+
+    it('falls back to a context-based reply without an API key', async () => {
+      const result = await serviceWith({}).chat(chatContext, messages);
+
+      expect(result.source).toBe('fallback');
+      expect(result.reply).toContain(`${context.match.score}/100`);
+      expect(result.reply).toContain('not available');
+    });
+
+    it('fallback without a job points the candidate to open one', async () => {
+      const result = await serviceWith({}).chat(
+        { candidate: context.candidate, job: null, match: null },
+        messages,
+      );
+      expect(result.reply).toContain('React');
+      expect(result.reply).toContain('Open a job');
+    });
+
+    it('sends the conversation as turns, context only in the system prompt, capped at 1,200 tokens', async () => {
+      const generateContent = jest
+        .fn()
+        .mockResolvedValue(geminiReply({ reply: 'Start with TypeScript.' }));
+      const result = await withFakeClient(
+        serviceWith({}),
+        generateContent,
+      ).chat(chatContext, messages);
+
+      expect(result).toEqual({ reply: 'Start with TypeScript.', source: 'ai' });
+      expect(generateContent).toHaveBeenCalledTimes(1);
+      const [request] = generateContent.mock.calls[0] as [
+        {
+          contents: { role: string; parts: { text: string }[] }[];
+          config: { systemInstruction: string; maxOutputTokens: number };
+        },
+      ];
+      expect(request.contents.map((turn) => turn.role)).toEqual([
+        'user',
+        'model',
+        'user',
+      ]);
+      expect(request.config.maxOutputTokens).toBe(1200);
+      expect(request.config.systemInstruction).toContain('MATCHBACK Bot');
+      expect(request.config.systemInstruction).toContain('Frontend Developer');
+      expect(JSON.stringify(request.contents)).not.toContain('<context>');
+    });
+
+    it('falls back when the reply is empty or cut off', async () => {
+      for (const reply of [
+        geminiReply({ reply: '' }),
+        geminiReply('{"reply": "half', 'MAX_TOKENS'),
+      ]) {
+        const service = withFakeClient(
+          serviceWith({}),
+          jest.fn().mockResolvedValue(reply),
+        );
+        await expect(
+          service.chat(chatContext, messages),
+        ).resolves.toMatchObject({ source: 'fallback' });
+      }
+    });
+  });
 });

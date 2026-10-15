@@ -59,3 +59,22 @@ export type MatchExplanation = z.infer<typeof matchExplanationSchema> & {
 export type ResumeCoaching = z.infer<typeof resumeCoachingSchema> & {
   source: AiSource;
 };
+
+/** ข้อความหนึ่งในแชต MATCHBACK Bot (ประวัติแชตมาจากเว็บทุกครั้ง ไม่เก็บใน DB) */
+export type ChatMessage = { role: 'user' | 'assistant'; content: string };
+
+/**
+ * ข้อมูลที่ Bot เห็น: โปรไฟล์ของผู้ถามเอง + งานที่กำลังดู (ถ้ามี) เท่านั้น
+ * ไม่มีอีเมล/ชื่อ/id ผู้ใช้ ไม่มีข้อมูลผู้สมัครคนอื่น และไม่มีการตัดสินใจของบริษัท
+ */
+export type AssistantContext = {
+  candidate: CandidateFacts;
+  job: JobFacts | null;
+  match: MatchResult | null;
+};
+
+export const assistantReplySchema = z.object({ reply: z.string().min(1) });
+
+export type AssistantReply = z.infer<typeof assistantReplySchema> & {
+  source: AiSource;
+};

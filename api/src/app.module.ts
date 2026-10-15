@@ -1,4 +1,5 @@
 import { AdminModule } from '@/admin/admin.module';
+import { AssistantModule } from '@/assistant/assistant.module';
 import { ApplicationsModule } from '@/applications/applications.module';
 import { CandidatesModule } from '@/candidates/candidates.module';
 import { CompaniesModule } from '@/companies/companies.module';
@@ -53,6 +54,7 @@ import { HealthController } from './health.controller';
     CompaniesModule,
     RecruiterModule,
     MatchesModule,
+    AssistantModule,
   ],
   controllers: [HealthController],
   providers: [
