@@ -1,112 +1,203 @@
 # MATCHBACK architecture
 
-> This file describes what is **on `main` today** (candidate side only). The two-sided target (recruiter role, companies, recruiter swipes, mutual matches, MATCHBACK Bot) is specified in [two-sided-plan.md](two-sided-plan.md) and [api-contract.md](api-contract.md). Update this file as each part lands.
+> This document separates the candidate-side system implemented on `main` from the two-sided architecture proposed for the MVP. Proposed modules and fields are design targets, not evidence that the feature already exists.
 
-## Overview
+## Product boundary
 
-```
-Browser ──(cookie: next-auth session)──▶ Next.js web (App Router)
-                                           │  Server Components read via lib/api/*.api.ts
-                                           │  Server Actions mutate via lib/actions/*
-                                           │  apiFetch + Bearer access token
-                                           ▼
-                                        NestJS API ──▶ PostgreSQL (Prisma)
-                                           │
-                                           └──▶ Claude API (only from AiService, optional)
-```
+MATCHBACK has two actors and one shared pairing rule:
 
-- The browser never calls the API directly. The web server holds the API tokens inside the encrypted next-auth cookie. `web/src/proxy.ts` refreshes the access token before it expires.
-- Every non-public API route goes through three global guards: rate limit → `AuthGuard` → `RolesGuard`.
+- A candidate discovers jobs and records a LIKE or SKIP.
+- A recruiter selects an owned job and records a LIKE or SKIP for a candidate.
+- A mutual match for `(candidateId, jobId)` exists only when both sides LIKE that same pair.
+- A compatibility score is profile fit calculated by deterministic code; it is not a match and is never a hiring prediction.
 
-## API modules
+The demo uses fictional seeded jobs and companies. Candidate applications remain self-reported; a swipe or a mutual match does not submit an external application or imply an employer response. The UI is desktop-first and fully responsive, with usable tablet/mobile layouts. Cards are text-first and have no candidate photos, company logos, or image uploads.
 
-| Module | Endpoints | Responsibility |
-|---|---|---|
-| `auth`, `users`, `admin` | `/auth/*`, `GET /users/me`, `/admin/users` | Login, tokens and guards (from the starter) |
-| `candidates` | `GET/PUT /candidates/me` | Candidate profile and listed skills. Builds the match inputs. |
-| `jobs` | `GET /jobs`, `GET /jobs/:id`, `GET /skills` (public); `GET /jobs/discover`, `POST /jobs/:id/swipe`, `DELETE /jobs/swipes` | Job catalog, the personalized swipe feed, and swipe persistence |
-| `matching` | `GET /jobs/:id/match`, `POST /jobs/:id/match/explanation` | The deterministic score and its explanation |
-| `resume` | `POST /resume/coach` | Resume suggestions for one job |
-| `applications` | `GET /applications?status=`, `PATCH/DELETE /applications/:id` | Saved jobs and self-reported application status |
-| `infrastructure/ai` | — | `AiService`: Claude call + zod schema + deterministic fallback |
+## Current system on `main`
 
-### Errors
-
-Errors have the shape `{ statusCode, message, code? }`.
-- **Domain errors:** a service throws a Nest exception with a stable `code`, e.g. `JOB_NOT_FOUND`, `UNKNOWN_SKILL`, `APPLICATION_NOT_FOUND`, `ACCOUNT_SUSPENDED`.
-- **Leftover Prisma errors:** `PrismaExceptionFilter` maps them (P2025→404, P2002→409, P2003→400). Anything else becomes a generic 500, and the details go only to the log.
-- **Validation errors:** 400, from `ValidationPipe`.
-
-## Data model
-
-```
-User 1─1 CandidateProfile        headline, education, experience, projects,
- │                               desiredRoles[], preferredSalaryMin, preferredWorkArrangement
- ├─* CandidateSkill ─* Skill     skills the candidate confirms (these count for the score)
- ├─* JobInteraction ─* Job       LIKE / SKIP (one per user+job; removes the job from Discover)
- └─* Application ─* Job          INTERESTED → APPLIED → INTERVIEWING → REJECTED / OFFER,
-                                 notes, employerFeedback (all entered by the user)
-Job *─* Skill via JobSkill(required: boolean)
+```text
+Browser
+  | next-auth session cookie
+  v
+Next.js App Router
+  | Server Components -> web/src/lib/api/*.api.ts
+  | Server Actions -> web/src/lib/actions/*
+  | apiFetch adds bearer access token on the server
+  v
+NestJS REST API
+  | global throttler -> AuthGuard -> RolesGuard
+  v
+PostgreSQL through Prisma 7
+  |
+  +--> AiService --> Google Gemini API (planned; server-side only)
+                  \-> deterministic fallback on missing key/failure
 ```
 
-- `Skill.id` and `Job.id` are stable slugs (`typescript`, `job-001`), seeded from `api/prisma/seed-data.ts`.
-- `Job.isDemo` marks fictional data, and the UI labels it.
+The browser never calls the API directly. CORS is intentionally off because the Next.js server performs API calls. The API owns business logic, authorization, score calculation, profile privacy, application rules, and AI context construction.
 
-## Main flows
+### Implemented API modules
 
-### Discover
-1. `/discover` (Server Component) calls `GET /jobs/discover`.
-2. The API loads the profile, takes the jobs this user hasn't swiped, runs `calculateMatch()` for each, and sorts by score.
-3. `SwipeDeck` (client) shows one card at a time. You can swipe by dragging, with the buttons, or with ← / →.
-4. Each swipe calls the `swipeAction` Server Action, which calls `POST /jobs/:id/swipe`.
-   - The card is removed optimistically and restored if the call fails.
-   - `LIKE` also creates an `Application` with status `INTERESTED` (if one doesn't already exist).
+| Module | Live responsibility |
+|---|---|
+| `auth`, `users`, `admin` | Email/password and optional Google auth, access/refresh sessions, account guards, admin user management |
+| `candidates` | `GET/PUT /candidates/me` and profile/skill persistence |
+| `jobs` | Public job catalog, public job detail, public skills catalog, candidate discovery, candidate job swipes, swipe reset |
+| `matching` | Deterministic job fit and explicit-action AI explanation |
+| `resume` | Explicit-action Resume Coach request |
+| `applications` | Candidate-owned saved jobs and self-reported status/notes |
+| `infrastructure/ai` | Gemini client boundary, structured-output validation, prompt rules, deterministic fallback |
 
-### Job detail and AI
-1. `/jobs/[id]` calls `GET /jobs/:id/match`, which returns the deterministic result. No AI runs on page load.
-2. "Explain my match" calls `POST /jobs/:id/match/explanation`, and "Get resume suggestions" calls `POST /resume/coach`.
-   - Both build one `MatchContext`: the job facts, the candidate's facts (no name or email), and the computed match.
-   - `AiService` asks Claude for structured output that is validated with zod.
-   - With no key, a timeout, an error, a refusal or unparsable output, it returns `ai.fallback.ts` output instead, with `source: "fallback"`.
+### Implemented web routes
 
-### Profile
-`PUT /candidates/me` replaces the profile and its skill list in one transaction. Scores are always computed fresh, so a profile edit changes every score on the next load.
+`/`, `/login`, `/signup`, `/discover`, `/jobs/[id]`, `/profile`, `/saved`, `/applications`, and `/admin` exist today. Recruiter routes and the matches page are proposed.
 
-## Match score
+## Candidate flow (implemented)
 
-Implemented in `api/src/matching/match-score.ts` and tested in `match-score.spec.ts`.
+1. The candidate signs in. The web stores session state in next-auth; the API issues a short-lived access token and rotating refresh token.
+2. `/discover` calls `GET /jobs/discover` through a Server Component. The API removes jobs already swiped by this user, computes the deterministic score for each remaining job, and sorts by score.
+3. `SwipeDeck` supports desktop mouse dragging, touch swiping, LIKE/NOPE buttons, and left/right keyboard input. A Server Action calls `POST /jobs/:id/swipe` and optimistically removes the card.
+4. A candidate LIKE records `JobInteraction(LIKE)` and creates an `INTERESTED` application row if needed. It does not submit an application.
+5. Job detail calls `GET /jobs/:jobId/match` without invoking AI. The user may explicitly request an explanation or Resume Coach response.
+6. The candidate may update the tracker themselves. No employer system updates it.
 
+## Recruiter flow (proposed)
+
+1. A recruiter registers or signs in with role `RECRUITER`.
+2. The recruiter creates or edits one company profile. The API stores the company relationship; the client never supplies an authority-bearing company id.
+3. The recruiter lists, creates, or edits only jobs where the database says `job.companyId === recruiter.companyId`.
+4. The recruiter selects one `PUBLISHED` job. `GET /recruiter/jobs/:jobId/candidates` returns privacy-safe `CandidateCard` records, excluding candidates already swiped for that job and never revealing the candidate's job interaction. Draft and closed jobs remain visible/manageable in the recruiter's own job list but do not open a candidate deck; deck and recruiter-swipe requests return `409 JOB_NOT_PUBLISHED`.
+5. A swipe writes one `CandidateInteraction` per `(jobId, candidateId)`. The recruiter identity is stored for audit, but another recruiter of the same company cannot create a second decision for the same pair.
+6. A recruiter matches page lists only mutual matches for the recruiter's company.
+
+## Mutual matching flow (proposed)
+
+```text
+Candidate LIKEs job
+        |
+        v
+JobInteraction(candidateId, jobId, LIKE)
+        |
+        +-- if recruiter LIKE already exists --> create/read Match
+
+Recruiter LIKEs candidate for selected job
+        |
+        v
+CandidateInteraction(jobId, candidateId, recruiterId, LIKE)
+        |
+        +-- if candidate LIKE already exists --> create/read Match
 ```
-score = round( 70 × requiredRatio + 15 × niceToHaveRatio + 15 × preferenceFit )   clamped to 0–100
 
-requiredRatio   = required skills the candidate LISTED / required skills of the job   (1 if the job lists none)
-niceToHaveRatio = same, for nice-to-have skills
-preferenceFit   = average of
-  workArrangement: same = 1 · either side HYBRID = 0.5 · opposite = 0 · not set = 0.5
-  salary:          job's top of range ≥ candidate minimum = 1 · otherwise 0 · either unknown = 0.5
-  role:            best share of a desired role's words found in the job title
-                   (ignores junior/senior/intern) · no desired roles = 0.5
+Both swipe services use the same write-then-read sequence:
+
+1. Commit the current swipe with an upsert.
+2. After that write is committed, read the other side's LIKE.
+3. If both sides LIKE, call `createMany({ skipDuplicates: true })` for the unique `(candidateId, jobId)` pair, then read the match.
+4. Return `matchCreated: true` only when this request inserted a new match row. Return `isMatched: true` and `matchId` whenever the match exists, including a retry or later SKIP; otherwise return `isMatched: false` and `matchId: null`.
+
+This avoids a SERIALIZABLE transaction while the database uniqueness constraint absorbs the race where both requests try to create the same match. The service uses the `createMany` result to set `matchCreated`; a duplicate insert is not reported as a new match. Changing a LIKE to SKIP later does not delete a match. There is no `POST /matches`.
+
+Client retry behavior: after a successful `matchCreated: true`, show the celebration and use `matchId` to load the full match. If a request times out, retrying the same swipe is safe; a response with `matchCreated: false`, `isMatched: true`, and a `matchId` means the match already exists, so refresh the match instead of replaying the creation celebration.
+
+## Proposed data model
+
+The current Prisma schema remains unchanged in this documentation branch. The following additions are proposed for the two-sided implementation and require a Prisma migration owned by Developer 3.
+
+```text
+User (existing)
+  role: USER | ADMIN                    -> add RECRUITER
+  companyId: nullable UUID              -> proposed one-company recruiter ownership
+       |
+       +--> Company (proposed)
+       |      id, name, description, website
+       |      recruiters, jobs
+       |
+       +--> CandidateProfile (existing, candidate only)
+       +--> CandidateSkill (existing)
+       +--> JobInteraction (existing candidate decision)
+       +--> CandidateInteraction (proposed recruiter decision)
+       +--> Match (proposed mutual result)
+
+Job (existing)
+  id, title, company display name, location, work arrangement,
+  employment type, salary range, description, isDemo
+  companyId: nullable UUID                  -> proposed owner relation
+  status: DRAFT | PUBLISHED | CLOSED        -> proposed publication state
+       |
+       +--> JobSkill (existing)
+       +--> JobInteraction (existing)
+       +--> CandidateInteraction (proposed)
+       +--> Match (proposed)
+       +--> Application (existing candidate tracker)
 ```
 
-### Skill classification
+Proposed constraints and visibility mapping:
 
-| Bucket | Rule | Counts toward score? | Shown as |
-|---|---|---|---|
-| `matchedSkills` | Skill is in the candidate's list | yes | ✓ green |
-| `unconfirmedSkills` · `MENTIONED_IN_PROFILE` | Not listed, but the name appears as a whole word in experience / projects / education | no | ? amber, "not enough information" |
-| `unconfirmedSkills` · `NO_SKILLS_LISTED` | The candidate listed no skills at all | no | ? amber |
-| `missingSkills` | Not listed and not mentioned, and the candidate did list some skills | no | ✕ red, "skill gap" |
+- `CandidateInteraction` has one decision per `(jobId, candidateId)`, with `recruiterId` referencing an authorized recruiter of that job's company.
+- `Match` has `@@unique([candidateId, jobId])` and stores `createdAt`.
+- The current schema has no publication field. Add `status` through a future migration; existing seeded jobs are backfilled/treated as `PUBLISHED`, recruiter-created jobs start as `DRAFT`, and only `PUBLISHED` jobs appear in candidate discovery/public browsing. `CLOSED` jobs remain manageable by their owner.
+- `isDemo` labels fictional seed data and is not a visibility flag. Recruiter-created records are not seeded demo data; any fictional hackathon records must be labeled explicitly.
+- Existing stable seed ids remain slugs such as `job-001` and `typescript`; recruiter-created ids may be UUIDs.
 
-### Why this design
-- **Deterministic:** it's testable, explainable, and stable across reloads. AI is used only to explain the score and suggest improvements, never to produce it.
-- **Unconfirmed skills don't score.** Confirming them in the profile raises the score immediately. This nudges candidates to state what they really have, instead of the system guessing.
-- **The score describes fit, not hiring odds.** UI labels are "Strong fit", "Partial fit" and "Stretch". There are no percentages.
+## Security and authorization
 
-## Known limitations / next steps
+- `USER` is the existing candidate role name. `RECRUITER` is proposed; `ADMIN` cannot be selected at sign-up.
+- Every non-public endpoint requires a bearer token. Global guards run throttling, authentication, then role authorization.
+- User ownership comes from `@CurrentUser('sub')`, never from the request body. Queries are scoped by `userId`.
+- Recruiter ownership is resolved from the database. A job owned by another company returns `404 JOB_NOT_FOUND`, preventing company/job enumeration. Wrong-role access returns 403.
+- Before a mutual match, `CandidateCard` contains first name, profile text, listed skills, and fit summary only. It excludes email, surname/full name, and the candidate's LIKE/SKIP decision.
+- After a mutual match, the match endpoint may return the contact details defined by the contract to the candidate and authorized recruiter only.
+- Soft-deleted users are excluded. Never serialize raw Prisma `User` rows or secrets.
+- DTO validation uses the global whitelist/transform pipe. Errors use `{ statusCode, message, code? }`; clients branch on stable codes.
+- AI prompts omit name, email, and user id and contain only the minimum profile and job facts needed for the requested explanation.
 
-- Skill matching is exact (by skill id). There are no synonyms or skill levels yet, e.g. "JS" vs "JavaScript".
-- Profile mention detection is a simple whole-word match on the skill name.
-- AI responses are not cached, so every button press is a new paid call (rate-limited to 10/min per IP).
-- The resume coach works only from profile text. There is no resume upload or parsing.
-- The application tracker is entirely self-reported. No employer integration exists by design.
-- Job data is demo-only. There is no ingestion pipeline.
+## Compatibility score
+
+Implemented in `api/src/matching/match-score.ts` as a pure function. The score is not AI-generated:
+
+```text
+score = round(70 * requiredRatio + 15 * niceToHaveRatio + 15 * preferenceFit)
+score is clamped to 0-100
+```
+
+Only skills the candidate explicitly listed count in the skill ratios. Preferences average work arrangement, salary, and role fit; unknown values are neutral (`0.5`). Skill buckets are deliberately separate:
+
+| Bucket | Meaning | Counts? |
+|---|---|---:|
+| `matchedSkills` | Listed by the candidate | Yes |
+| `unconfirmedSkills` | Not listed, but mentioned in profile text, or no skills were listed | No |
+| `missingSkills` | Not listed or mentioned when the candidate has a skill list | No |
+
+AI may explain the deterministic result and provide evidence-based recommendations, but it must not calculate, alter, or present it as a hiring probability. The score is never a mutual match. The UI may use labels such as Strong fit, Partial fit, and Stretch; it must not show the score as a percentage.
+
+## AI and MATCHBACK Bot architecture
+
+### AI path (target provider; implementation pending)
+
+`MatchingService` builds a `MatchContext` containing job facts, candidate facts without identity fields, and the already-calculated deterministic match. The NestJS `AiService` will send that context to Google Gemini only after an explicit explanation or Resume Coach action. Structured output is validated against the known profile/job facts with zod. Missing keys, timeouts, errors, refusals, and unparsable or unsupported output use `ai.fallback.ts` with `source: "fallback"`.
+
+The prompt rules prohibit invented candidate facts, re-scoring, and hiring promises. AI responses are suggestions and explanations, not authoritative decisions.
+
+### Proposed Bot path
+
+The hackathon MVP exposes the Bot to candidate (`USER`) accounts only. Recruiter Bot access is out of scope and requires a future contract decision.
+
+```text
+Web Bot panel
+  -> Server Action / apiFetch
+  -> POST /assistant/messages
+  -> validate <=20-message history and optional jobId
+  -> build the same safe MatchContext when jobId exists
+  -> AiService Bot task + rules prompt
+  -> Gemini structured/text response or deterministic fallback
+```
+
+The server is stateless. The web sends the conversation history on every request. The request is limited to 20 messages, 2,000 characters per message, and 20,000 total characters. The endpoint is throttled, does not persist chat, and sends the minimum safe context to Gemini. U-Bot is not used in MATCHBACK. The service caps generated output, validates claims against known facts, avoids sending duplicate context, and uses the deterministic fallback without failing the page when AI is unavailable. The provider change is documented here only; this merge does not implement application code.
+
+## Known limitations
+
+- Recruiter, company, recruiter-swipe, mutual-match, matches-page, and Bot modules are not on `main` yet.
+- Current skill matching uses exact stable skill ids; it has no synonym or skill-level model.
+- Mention detection is a simple whole-word check in profile text.
+- There is no resume upload or PDF parsing.
+- AI responses are not cached; explicit calls are rate-limited.
+- Jobs are demo-only; there is no scraping or external feed.

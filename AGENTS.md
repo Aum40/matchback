@@ -1,283 +1,232 @@
-# MATCHBACK — Agent Guide
+# MATCHBACK agent guide
 
-> **Swipe smart. Apply with confidence.**
-> Read this whole file before starting any task. It is the single source of rules for this repo. `api/` and `web/` contain thin `CLAUDE.md` / `AGENTS.md` stubs that only `@`-import this file. Add rules here, never to the stubs.
+> **Swipe smart. Match better.**
 
-## 1. Product
+This is the canonical source of product and engineering rules for MATCHBACK. Read it before changing the repository. `api/CLAUDE.md`, `api/AGENTS.md`, `web/CLAUDE.md`, and `web/AGENTS.md` are stubs that import this file; add shared rules here, not to the stubs.
 
-MATCHBACK is a **two-sided "Tinder for Jobs"** with AI assistance.
-- Candidates swipe on job postings.
-- Recruiters swipe on candidates for a specific job.
-- A **mutual match** happens only when both sides say LIKE.
+## 1. Product specification
 
-It is being built for the **AI Track of U-Hackathon 2026**. **Deadline: 16 Oct 2026, 14:00 (Thailand).**
+MATCHBACK is a two-sided, AI-assisted "Tinder for Jobs" for university students, recent graduates, early-career professionals, and recruiters.
 
-### Submission (team1 Ecosystem Hub — official participant guide)
+**Problem we solve:** early-career job seekers apply to many jobs, hear nothing back, and can't tell whether their skills fit or how to improve their resume. **Principle: help candidates make better applications, not just more applications.**
 
-Judges score **exactly the submitted version**, and they open three links. All three must work for anyone, in a private window:
-1. the **public GitHub repo**
-2. a **deployed demo website** that shows the real product, not just a landing page. Judges must be able to log in with demo accounts without signing up — see the deployment section in [docs/two-sided-plan.md](docs/two-sided-plan.md).
-3. the **pitch deck** as a Google Drive link set to *Anyone with the link can view*.
+- Candidates discover jobs and swipe left to PASS or right to LIKE.
+- Recruiters choose one of their jobs and swipe left to PASS or right to LIKE candidate cards.
+- A **mutual match** exists only when both sides LIKE the same candidate/job pair.
+- The deterministic compatibility score describes profile fit. It is never a mutual match, a hiring probability, or a promise of an employer response.
+- Candidate likes do not submit job applications. The existing application tracker remains self-reported by the candidate.
+- UI copy must never say "chance", "probability", or "likelihood of getting hired", and must never show the score as a percentage (`%`).
+- Seeded jobs and companies are fictional demo data. Seeded company names end in `(demo)`. They must never be presented as real vacancies, and the UI must show a `Demo data` label. Recruiter-created records are recruiter-owned data, not seeded demo data; if fictional records are created for the hackathon walkthrough, they must be explicitly marked as demo records too.
 
-Also:
-- Changed something after submitting? **Submit again** before the deadline.
-- The tech stack must list every partner tool **actually used**: U-Bot, Tokenomist, ElevenLabs, Avalanche. Never list one we didn't use.
-- This repo started from a **pre-existing starter template**, so tick *"pre-existing idea or codebase"* when submitting. Be honest.
+The hackathon deadline is **16 October 2026 at 14:00 ICT**. A small, working end-to-end demo is more important than extra features.
 
-> **The two-sided scope is being built now.** Before writing code, read [docs/two-sided-plan.md](docs/two-sided-plan.md) (schema, authorization, **file ownership per developer**, implementation order) and [docs/api-contract.md](docs/api-contract.md) (the shared API contract). Sections below marked *(planned)* aren't on `main` yet.
+### Submission
 
-**Who it's for:** university students, recent graduates and early-career professionals. They apply to many jobs, hear nothing back, and don't know whether their skills fit or how to improve their resume.
+Judges score exactly the submitted version and require a public repository, a deployed demo website with demo-account access, and a viewable pitch deck. If anything changes after submission, submit again before the deadline. List only partner tools actually used. This repository started from a pre-existing starter template; report that honestly.
 
-**Recruiters** create a company and job postings, then swipe on candidates for each job.
+- Test every submitted link in a private/incognito window.
+- The pitch deck's Google Drive sharing must be set to *Anyone with the link can view*.
+- U-Bot (https://u.bot) is an end-user chat app with no API for third-party apps (per the official `ubot-user-guide.pdf`), so it can't be integrated into the product. If the team uses u.bot as a tool (drafting, U-Code prototypes), list U-Bot in the submission tech stack and say exactly what it was used for. Never claim an in-app integration.
 
-**What it does:**
-- Swipe discovery on both sides, plus real mutual matches
-- An explainable match score
-- AI resume suggestions
-- MATCHBACK Bot, a career assistant *(planned)*
-- An application tracker
+### Candidate experience
 
-### Product principles (non-negotiable)
+The candidate MVP includes authentication, profile editing, skills, education, experience, projects, a desktop-first fully responsive job swipe deck, deterministic compatibility analysis, AI explanation, Resume Coach, saved jobs, self-reported application tracking, and a mutual matches page.
 
-1. **Better applications, not more applications.** Every feature should help a candidate apply *well*, not *more*.
-2. **Never promise or imply employer responses or hiring.** Copy must not say "chance", "probability", "likelihood of getting hired", or show the score as a `%`. The score describes *profile fit*.
-3. **Never invent candidate facts.** AI must not add skills, experience, numbers or achievements that aren't in the profile.
-4. **Missing information is not a skill gap.** If the profile doesn't say, we say "not enough information", not "you lack X".
-5. **The tracker is self-reported.** Users update the status themselves. Nothing may suggest that employers update it.
-6. **A "match" means mutual.** "It's a Match!" appears only when the API returns a created mutual match (`SwipeResult.match`). A high score is never a match, and the score is never called a match result.
-7. **Candidate privacy before a match.** Recruiters see a `CandidateCard` (first name, profile text, skills, score). Email and full name are shown only after a mutual match. The recruiter deck never reveals whether a candidate liked the job.
-8. **Demo data is labeled.** Every job is fictional (`Job.isDemo = true`, company names end in `(demo)`), and the UI shows a "Demo data" badge.
+### Design requirements
 
-## 2. Hackathon scope
+- Desktop is the primary design target. Tablet and mobile layouts remain usable and responsive.
+- Swipe cards are text-first. Do not add candidate profile photos, company logos, image uploads, avatar uploads, or image-based matching.
+- Support mouse dragging and touch swiping. Keep visible Like/Pass buttons and keyboard-accessible alternatives.
+- Use text, labels, and icons in addition to color; every page and interaction has loading, empty, error, and permission states.
 
-**In scope (MVP):**
-- **Candidate:** profile, job swipe deck, explainable match, resume coach, saved jobs, application tracking, the matches page.
-- **Recruiter** *(planned)*: company profile, create/manage jobs, a per-job candidate swipe deck, the matches page.
-- **Mutual matching** *(planned)*: created only inside the two swipe endpoints, with a match celebration modal.
-- **MATCHBACK Bot** *(planned)*: a floating AI career assistant (explain fit, job requirements, skill gaps, resume bullets, interview prep).
+### Recruiter experience
 
-**Out of scope — do not build:**
-- chat between users (the bot is the only chat)
-- un-matching or blocking
-- multi-company recruiters or team management
-- **U-Bot integration inside the app.** Verified against the official `ubot-user-guide.pdf`: U-Bot (https://u.bot) is an end-user chat app (Casual / Professional / U-Code modes) with **no API for third-party apps**, so MATCHBACK cannot call it.
-  - The in-app assistant is **MATCHBACK Bot on Claude**. Never call it U-Bot, invent a U-Bot endpoint, or claim an integration.
-  - The team *may* use u.bot as a tool (drafting, U-Code prototypes). If it does, list U-Bot in the submission tech stack and say exactly what it was used for.
-- job scraping or real job feeds
-- custom ML training
-- email or push notification infrastructure
-- payments
-- a second auth system
+The recruiter MVP includes recruiter authentication, one company profile per recruiter, job creation and management, a per-job candidate swipe deck, and a recruiter mutual matches page. Recruiters may access and swipe only on jobs owned by their company.
 
-Login (email/password and optional Google) already exists. The only planned change is the `RECRUITER` role chosen at sign-up; don't build anything else in auth.
+### Mutual matching rules
 
-**Priorities:** a working end-to-end demo beats more features. Prefer the smallest complete solution. When unsure whether something is in scope, ask.
+For `(candidateId, jobId)`, the backend creates a match only when both records exist:
 
-## 3. How to work in this repo
+1. The candidate has a `JobInteraction` with `direction = LIKE`.
+2. An authorized recruiter of the job's company has a `CandidateInteraction` with `direction = LIKE`.
 
-1. **Read this file first, then inspect the code you're about to change** (and its tests) before editing. Follow the patterns already there.
-2. **Stay in the files your role owns** (file ownership table in [docs/two-sided-plan.md](docs/two-sided-plan.md#4-file-ownership-4-developers-in-parallel)). Need a change in someone else's file? Ask the owner. Don't edit across the boundary.
-3. **Build against [docs/api-contract.md](docs/api-contract.md).** If the contract is wrong, change it in its own small PR (owner: Dev 3) and tell the team. Never let code and contract drift.
-4. Work **incrementally**. Keep every step runnable and **preserve working functionality**. Don't break the existing demo path (login → discover → job detail → saved → applications). Also check the must-not-break list in the plan.
-5. **Don't add dependencies, abstractions or rewrites** unless the task needs them. If a new dependency is necessary, say why.
-6. After every change, **run the checks for each app you touched** (section 12). **Never claim tests or builds passed unless you ran them in this session**. Report failures honestly, with the output.
-7. **Document unfinished work and known limitations** in the PR description or the final message. Never hide a stub behind UI that looks finished.
+Matches are created only inside the two swipe services. Clients cannot create, delete, or un-match them. Persist each swipe, enforce one match per candidate/job pair, and use the write-then-read algorithm plus a database uniqueness constraint so simultaneous swipes are safe and idempotent. A later SKIP does not remove an existing match.
 
-## 4. Tech stack
+Both swipe endpoints return `matchCreated`, `isMatched`, and `matchId`. `matchCreated` is true only when this request inserts a new match row. `isMatched` is true whenever the mutual match already exists, including a retry or a later SKIP. `matchId` is non-null whenever `isMatched` is true. Duplicate swipes use idempotent upserts and never create duplicate interactions or matches. The UI shows "It's a Match!" only when `matchCreated` is true; a retry with `isMatched` true refreshes the match instead of replaying the creation celebration.
 
-| Layer | Choice |
+Before a match, a recruiter receives only a `CandidateCard`: first name, profile text, listed skills, and deterministic fit summary. Do not reveal email, full name, or whether the candidate liked the job. Contact details may be returned only after a mutual match.
+
+### AI requirements
+
+- Compatibility is calculated by deterministic server code; AI may explain it but never score or re-score it.
+- Use only candidate-provided facts. Never invent skills, experience, achievements, employers, numbers, or qualifications.
+- Missing profile information is not a skill gap. Label it as "not enough information" or unconfirmed.
+- Resume Coach may suggest clearer wording, relevant evidence, skills, or projects, but must not fabricate achievements or experience.
+- MATCHBACK Bot is a candidate-only contextual career assistant for job fit, requirements, skill gaps, resume bullets, interview preparation, and career guidance. It is stateless: the web sends the conversation history, optionally with a job id.
+- MATCHBACK Bot is candidate-facing in the hackathon MVP. Recruiter Bot access is out of scope unless a future API contract explicitly adds it.
+- The NestJS API calls Google Gemini for explanations, skill-gap recommendations, Resume Coach, and the candidate-only MATCHBACK Bot. Gemini is called only after an explicit user action, is throttled, and receives the minimum profile/job data needed. The Gemini API key is stored only in a server-side environment variable and is never exposed to frontend code.
+- Compatibility scoring remains deterministic server code on a 0-100 scale. Gemini may explain the score and recommend evidence-based improvements, but it never calculates or changes the score. The score is not hiring probability and is not a mutual match.
+- AI output is validated against the known candidate profile and job facts. Never invent skills, experience, achievements, employers, numbers, or qualifications.
+- No API key, timeout, API error, refusal, or invalid output may break the request. Return the deterministic fallback with `source: "fallback"`.
+- MATCHBACK Bot requests are limited to 20 messages, 2,000 characters per message, and 20,000 total characters, with a 1,200-token output cap, one model call per request, throttling, and no conversation persistence.
+- MATCHBACK does not use U-Bot. The MATCHBACK Bot is a separate candidate-only feature backed by Gemini through `AiService`.
+
+## 2. Scope
+
+### MVP priorities
+
+1. Preserve the current candidate demo path: login -> discover -> job detail -> saved -> applications.
+2. Add the smallest complete recruiter path: recruiter login -> company -> job -> candidate deck -> mutual matches.
+3. Make mutual matching real, authorized, persisted, race-safe, and visible only after backend confirmation.
+4. Keep compatibility explanations and Resume Coach useful, evidence-based, and safe. Add the Bot after the core swipe path works.
+
+### Out of scope
+
+- Direct candidate/recruiter human chat; the Bot is the only chat experience.
+- Unmatching, blocking, or moderation workflows beyond existing account suspension.
+- Multiple companies per recruiter, recruiter teams, or complex permissions.
+- Job scraping, external job feeds, or employer integrations.
+- Blockchain, payments, complex analytics dashboards, resume PDF parsing, email/push notification infrastructure, custom ML training, and a second auth system.
+- U-Bot is not used in MATCHBACK; the candidate-only MATCHBACK Bot uses the documented Gemini-backed `AiService` path.
+
+## 3. Current implementation status
+
+`main` currently implements email/password and optional Google auth, public health/jobs/skills endpoints, candidate profiles, candidate job discovery/swipes, deterministic match analysis, AI/fallback explanation, Resume Coach, saved jobs, self-reported applications, and admin user management. It does not yet implement recruiter roles, companies, recruiter-owned jobs, recruiter swipes, explicit job publication states, mutual-match persistence/API, matches pages, or MATCHBACK Bot. Those are planned changes and must be labeled as planned until they land.
+
+**AI provider status:** the code on `main` still calls **Claude** through `@anthropic-ai/sdk` (`ANTHROPIC_API_KEY`, `AI_MODEL` in `api/src/infrastructure/ai/ai.service.ts`). The switch to Google Gemini described in this file is **planned** (owner: Developer 4). Until it lands, `GEMINI_API_KEY` has no effect and AI features use Claude, or the deterministic fallback when there is no key. Whoever lands the switch must update `env.validation.ts`, `.env.example`, the AI service tests and this note together.
+
+## 4. Technical stack
+
+Use the versions declared by the repository manifests; do not add a second stack.
+
+| Layer | Repository choice |
 |---|---|
-| API | NestJS 11, REST, class-validator DTOs |
-| DB | PostgreSQL + Prisma 7 (`@prisma/adapter-pg`) |
-| Web | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, shadcn (Base UI) |
-| Auth | next-auth v5 (web) + JWT access token and rotating refresh token (API) |
-| Forms | react-hook-form + zod |
-| AI | Claude API via `@anthropic-ai/sdk`, isolated in `api/src/infrastructure/ai/`, with a deterministic fallback |
-| Tests | API: Jest + supertest e2e. Web: Vitest + Testing Library |
+| Web | Next.js 16.3.8, React 19.2.4, TypeScript, Tailwind CSS 4, shadcn/Base UI |
+| API | NestJS 11.2.x, REST, class-validator DTOs |
+| Database | PostgreSQL, Prisma 7.9.x with `@prisma/adapter-pg` |
+| Auth | next-auth 5.0.0-beta.32 on the web; JWT access tokens and rotating refresh tokens in the API |
+| AI | Google Gemini API, isolated behind `api/src/infrastructure/ai/`, with deterministic fallback |
+| Tests | Jest + supertest for API; Vitest + Testing Library for web |
+| Package manager | pnpm 11.8.0 |
+| Runtime | Node 24.x, `>=24.15 <25` |
 
-**Toolchain:** Node **24.x (>= 24.15)** and **pnpm 11.8.0**, pinned in `.nvmrc`, `packageManager`, and `engines`. `engineStrict: true` lives in each app's `pnpm-workspace.yaml`, so the wrong Node version fails install and scripts. Run `nvm use`; don't override it.
+API and web are independent projects with independent lockfiles. Run commands inside `api/` or `web/`; there is no root package.
 
-**Version decisions:**
-- **PostgreSQL rather than SQLite:** it was already wired up in the starter, and CI tests migrations against it.
-- **No pnpm workspace / `packages/shared`:** the API and web are independent projects with their own lockfiles. The web keeps hand-written response types in `web/src/lib/api/api.type.ts`, with comments pointing at their API source.
-- `next`, `react`, `next-auth` are pinned exactly. next-auth v5 is beta, so don't bump it casually.
+- **Toolchain enforcement:** `engineStrict: true` lives in each app's `pnpm-workspace.yaml`, because pnpm 11 ignores `engine-strict` in `.npmrc`. Installing or running scripts on the wrong Node version **fails rather than warns**. Use `nvm use` (reads `.nvmrc`); don't bypass it.
+- The committed `pnpm-lock.yaml` files are the real version pins. `next`, `react`, `react-dom` and `next-auth` are pinned exactly. next-auth v5 is beta, so don't bump it casually.
 
-## 5. Repo map
+### Repo map
 
 ```
 api/
-  prisma/schema.prisma         data model (source of truth)
-  prisma/migrations/           committed migrations — never edit an applied one
-  prisma/seed-data.ts          demo skills, jobs and demo profile (stable ids)
-  prisma/seed.ts               seeds catalog + admin + demo candidate
-  src/matching/match-score.ts  ★ deterministic match score (pure function)
-  src/matching/                GET /jobs/:id/match, POST …/explanation
-  src/infrastructure/ai/       AiService (Claude) + ai.fallback.ts + schemas
-  src/candidates/              GET/PUT /candidates/me (profile + skills)
-  src/jobs/                    GET /jobs, /jobs/:id, /jobs/discover, POST /jobs/:id/swipe, GET /skills
-  src/resume/                  POST /resume/coach
-  src/applications/            GET/PATCH/DELETE /applications
-  src/auth/ users/ admin/      from the starter: login, guards, admin
-  src/companies/ recruiter/    (planned) company profile, recruiter jobs + candidate deck
-  src/matches/                 (planned) mutual matches (read-only API)
-  src/assistant/               (planned) MATCHBACK Bot
-  src/common/                  decorators, throttle presets, PrismaExceptionFilter
+  prisma/schema.prisma           data model (source of truth); migrations/ are committed, never edit an applied one
+  prisma/seed-data.ts, seed.ts   fictional demo data with stable ids; idempotent seed
+  src/config/env.validation.ts   every env var, validated with zod at boot
+  src/matching/match-score.ts    deterministic score (pure function, tested)
+  src/infrastructure/ai/         AiService + fallback + output schemas (the only AI client)
+  src/auth/ users/ admin/        login, tokens, guards, admin
+  src/candidates/ jobs/ resume/ applications/   candidate side
+  src/companies/ recruiter/ matches/ assistant/ (planned) recruiter side, mutual matches, bot
+  src/common/                    decorators (@Public @Roles @CurrentUser @Trim @NormalizeEmail @StrongPassword), throttle presets, PrismaExceptionFilter
 web/
-  src/app/page.tsx             landing (public, shows sample jobs)
-  src/app/(app)/discover       swipe deck
-  src/app/(app)/jobs/[id]      job detail + match analysis + AI panels
-  src/app/(app)/profile        candidate profile form
-  src/app/(app)/saved          INTERESTED applications
-  src/app/(app)/applications   applied/interviewing/… tracking
-  src/app/(app)/matches        (planned) candidate's mutual matches
-  src/app/(app)/recruiter/**   (planned) recruiter area: company, jobs, candidate deck, matches
-  src/components/features/     jobs/ match/ profile/ applications/ auth/
-  src/lib/api/                 apiFetch + one *.api.ts per API area + api.type.ts
-  src/lib/actions/             Server Actions (all mutations)
-docs/architecture.md           modules, data flow, match formula (current state)
-docs/api-contract.md           ★ shared API contract for the two-sided build
-docs/two-sided-plan.md         ★ schema proposal, authz, file ownership, order, risks
+  src/lib/api/                   apiFetch + ApiError + one *.api.ts per API area + api.type.ts
+  src/lib/actions/               Server Actions (all mutations)
+  src/lib/auth.ts, proxy.ts      next-auth config; access-token refresh
+  src/app/(auth)/ (app)/         login/signup; logged-in pages (recruiter area planned under (app)/recruiter)
+docs/                            api-contract, team-ownership, two-sided-plan, architecture, deploy
+render.yaml                      Render Blueprint for the API (see docs/deploy.md)
 ```
 
-## 6. Commands
+## 5. Architecture boundaries
 
-**Use pnpm for everything — never `npx` or `npm run`.** Run commands inside `api/` or `web/`; there is no root package. For one-off tools use `pnpm dlx` (e.g. `pnpm dlx shadcn@latest add dialog`).
+- The browser never calls the API directly. Next.js Server Components read through `web/src/lib/api/*.api.ts`; mutations go through Server Actions in `web/src/lib/actions/`; `apiFetch` adds the bearer token.
+- CORS is off on purpose. When a request made with a `token` gets `401` (or `403 ACCOUNT_SUSPENDED`), `apiFetch` redirects to `/session-expired`, which revokes the refresh token and signs out. Don't catch that redirect.
+- The API owns authorization, scoring, skill classification, application rules, match creation, and the data sent to AI. The web does not recompute scores or infer matches.
+- Controllers handle HTTP only. Business logic belongs in services; pure scoring and fallback logic must have no Nest or Prisma imports.
+- Only `AiService` may call the Gemini client. Keep the Gemini API key server-side; frontend code must never import the client or read the key.
+- Web response types are handwritten in `web/src/lib/api/api.type.ts`; do not import API source files into the web.
+- [docs/team-ownership.md](docs/team-ownership.md) is authoritative for file ownership. [docs/api-contract.md](docs/api-contract.md) is authoritative for HTTP types and endpoint behavior. [docs/two-sided-plan.md](docs/two-sided-plan.md) contains implementation order and risk notes and must not contradict either file.
 
-| | `api/` | `web/` |
-|---|---|---|
-| install | `pnpm install` (also runs `prisma generate`) | `pnpm install` |
-| dev | `pnpm start:dev` → :8000 | `pnpm dev` → :3000 |
-| lint | `pnpm lint` (fix) / `pnpm lint:check` (CI) | `pnpm lint` |
-| test | `pnpm test` / `pnpm test:e2e` (no DB needed) | `pnpm test` |
-| build | `pnpm build` | `pnpm build` |
-| migrate | `pnpm prisma migrate dev --name <change>` | — |
-| seed | `pnpm db:seed` (idempotent; resets the demo user's swipes) | — |
-| reset DB | `pnpm prisma migrate reset` (drops data, re-seeds) | — |
+## 6. Security and API rules
 
-## 7. Architecture boundaries
-
-- **The browser never calls the API.** Server Components read data through `web/src/lib/api/*.api.ts`. Every mutation goes through a Server Action in `web/src/lib/actions/`. Both paths use `apiFetch`, which adds the bearer token and handles 401s. CORS is off on purpose.
-- **The API owns all business logic.** That includes scoring, deciding gaps, what AI sees, and application rules. The web only displays and collects input. Don't recompute scores in the web.
-- **Controllers handle HTTP only.** Logic lives in services. Pure logic, like scoring, lives in plain functions with no Nest or Prisma imports.
-- **AI is behind `AiService`.** Nothing else imports `@anthropic-ai/sdk`.
-- The web keeps its own response types and must not import API source files.
-
-## 8. Code conventions
-
-- Naming:
-  - Module dirs: kebab-case plural (`src/applications/`).
-  - Classes: `ApplicationsService` / `ApplicationsController`.
-  - DTO files: `update-application.dto.ts` → `UpdateApplicationDto`.
-  - Paths: kebab-case plural nouns.
-  - React components: PascalCase files.
-- Comment the **non-obvious** (why a check exists, what breaks without it) **in Thai**, matching existing code. Don't narrate what the code says.
-- Keep UI copy in English, short and plain. Avoid hype.
-- **UI:**
-  - Mobile-first.
-  - Use theme tokens from `globals.css` (`success`, `warning`, `destructive` for matched / unconfirmed / gap). No hardcoded colors.
-  - Every state needs text or an icon, not color alone.
-  - Every swipe has a button and keyboard alternative.
-  - Every page has loading, empty and error states.
-
-## 9. API design and validation
-
-- Global `ValidationPipe({ whitelist: true, transform: true })`: every body and query is a DTO class. Use `@Trim()` on free text, `@NormalizeEmail()` on emails, and `@Type(() => Number)` on numeric query params.
-- **Errors:** `{ statusCode, message, code? }`. Throw Nest exceptions with a stable `code` the web can branch on, e.g. `new NotFoundException({ message, code: 'JOB_NOT_FOUND' })`. The web reads it from `ApiError.code`; branch on `code`, never on `message`. `PrismaExceptionFilter` maps leftover Prisma errors (P2025→404, P2002→409, P2003→400) and hides DB details.
-- **Roles:**
-  - `USER` = **candidate** (the name is kept on purpose: renaming would migrate data and every token), `RECRUITER` *(planned)*, `ADMIN`.
-  - Candidate-only routes get `@Roles(Role.USER)`, recruiter routes `@Roles(Role.RECRUITER)`.
-  - `ADMIN` can never be chosen at sign-up.
-- **Recruiter ownership** *(planned)*: every recruiter job route checks `job.companyId === caller's companyId`, loaded from the DB rather than trusted from the token. A mismatch returns 404 `JOB_NOT_FOUND`.
-- **Auth:** every route needs a bearer token unless it is marked `@Public()`. Guards run in order: throttler → `AuthGuard` (deleted or old session → 401, suspended → 403 `ACCOUNT_SUSPENDED`) → `RolesGuard` (`@Roles(Role.ADMIN)`).
-- **Ownership:** get the user with `@CurrentUser('sub')`, never from the body. Scope every user-owned query by `userId` in the `where` clause. For another user's id, return 404, not 403.
-- Public endpoints today: `GET /health`, `/jobs`, `/jobs/:id`, `/skills`, and the `/auth/*` routes.
-- AI endpoints are `POST` with `@AiThrottle()`, because each call costs money.
-
-## 10. Database and Prisma
-
-- Change the schema with `pnpm prisma migrate dev --name <change>`. Commit the migration folder together with `schema.prisma`. Never use `db push` for committed work, and never edit an applied migration. CI applies all migrations to an empty Postgres and fails if they drift from the schema.
-- Naming:
-  - Models: PascalCase singular.
-  - Tables: snake_case plural via `@@map`.
-  - Columns: snake_case via `@map`.
-  - Enums: SCREAMING_SNAKE members.
-- **Stable ids for reference and demo data:** `Skill.id` is a slug (`typescript`), `Job.id` is `job-001`…. Seed with `upsert` so it can re-run safely. Add new demo data to `prisma/seed-data.ts`; `src/database/seed-data.spec.ts` checks it.
-- `User` is soft-deleted (`deletedAt`). Filter `deletedAt: null`, and never return a raw `User` row; use `PUBLIC_USER_SELECT`.
-- The generated client lives in `src/database/generated/` (gitignored). If types are missing after a pull, run `pnpm prisma generate`.
-
-## 11. Matching and AI rules
-
-### Match score (`api/src/matching/match-score.ts`)
-
-- **Deterministic and pure.** Same input gives the same output, with no I/O and no AI. It is covered by `match-score.spec.ts`. **Update the tests and `docs/architecture.md` in the same change whenever the formula changes.**
-- **Formula:** `score = 70 × required + 15 × niceToHave + 15 × preferences`, rounded and clamped to 0–100.
-  - The skill ratios count only skills the candidate *listed*.
-  - Preferences average three parts (work arrangement, salary, role). Unknown values count 0.5 (neutral).
-- **Skill buckets**, which must stay distinct:
-  - `matchedSkills` — listed in the profile.
-  - `unconfirmedSkills` — missing information. Reason `MENTIONED_IN_PROFILE` (the name appears in experience or projects text) or `NO_SKILLS_LISTED` (the profile lists no skills at all). These don't count toward the score and aren't called gaps.
-  - `missingSkills` — confirmed gaps.
-- Never present the score as a probability of being hired.
-
-### Mutual match *(planned — normative rules in [docs/api-contract.md](docs/api-contract.md#mutual-match-rules-normative))*
-
-- A match for `(candidate, job)` exists only when the candidate LIKEd the job (`JobInteraction`) **and** a recruiter of that job's company LIKEd the candidate for that job (`CandidateInteraction`).
-- **Clients can never create a match.** There is no POST `/matches`. Matches are created only inside the two swipe services, using the **write-then-read** algorithm:
-  1. Commit the swipe.
-  2. Read the other side.
-  3. `createMany({ skipDuplicates: true })` on `@@unique([candidateId, jobId])`.
-
-  This is race-safe without SERIALIZABLE. Keep it, and keep its e2e test.
-- Both swipe endpoints return `SwipeResult` with `match` non-null only when this swipe created or completed the match. The web shows the match modal only then.
-- A match is not removed when a side later changes LIKE to SKIP, and resetting swipes doesn't delete matches.
-
-### MATCHBACK Bot *(planned)*
-
-- `POST /assistant/messages`. The server is stateless: the web sends the history (≤ 20 messages).
-- It goes through `AiService` with the same rules prompt (never invent facts, never claim hiring odds) and the same fallback when there is no key or AI errors.
-- An optional `jobId` gives the bot the same `MatchContext` as the explanation endpoint (no email/name).
-- It is **not U-Bot.** U-Bot has no API (see section 2). Don't name it or describe it as the official hackathon U-Bot.
-
-### AI (`api/src/infrastructure/ai/`)
-
-- **AI explains and suggests. It never scores, re-scores, or invents.** The rules prompt in `ai.service.ts` enforces this. Keep it.
-- **The API key is server-side only** (`ANTHROPIC_API_KEY` in `api/.env`). It never goes in `web/` or a `NEXT_PUBLIC_*` variable.
-- **No key, timeout, API error, refusal or unparsable output → deterministic fallback** (`ai.fallback.ts`) with `source: "fallback"`. AI failure must never fail the request or the page. The UI shows the source: "AI-generated — check it" vs "Rule-based suggestions".
-- Output is validated with zod (`ai.types.ts`). The AI and fallback responses share one shape; change both together.
-- Send the minimum data: no name, email, or user id in prompts.
-- AI runs **only on user action** (a button), never on page load or in lists. Model: `AI_MODEL` (default `claude-opus-5-5`). The server-side `fallbacks: "default"` beta handles model refusals.
-
-## 12. Testing and Definition of Done
-
-**Expectations:**
-- **API:**
-  - Unit-test pure logic (scoring, fallbacks, seed data) and guards.
-  - Use `test/app.e2e-spec.ts` for HTTP wiring. It mocks Prisma, so no DB is needed.
-  - Mock the Anthropic client in tests; tests must never call the real API.
-- **Web:** Vitest for schemas, formatters and interactive components (e.g. `SwipeDeck.test.tsx`).
-
-**A feature is done when:**
-1. It works end to end on the demo path, with loading, empty and error states.
-2. `lint` + `test` + `build` pass in every app touched (API: also `test:e2e`), and you ran them.
-3. Schema changes have a committed migration, and the seed still runs.
-4. New env vars are in `env.validation.ts` / `lib/env.ts` **and** `.env.example` with a comment.
-5. The product principles (section 1) still hold: no hiring promises, no invented facts, demo data labeled.
-6. Docs are updated if behavior or the formula changed (README, `docs/architecture.md`, this file).
-7. Known limitations are written down, not hidden.
-
-## 13. Security and environment
-
-- Never commit `.env` files, API keys, secrets, or real personal data. Commit only `.env.example`, with blank secrets.
+- `USER` means candidate and is retained for compatibility with existing data and tokens. `RECRUITER` is the recruiter role. `ADMIN` is never self-assigned at sign-up.
+- Every non-public route requires a bearer access token. Guards run in order: throttler -> `AuthGuard` -> `RolesGuard`.
+- Use `@CurrentUser('sub')`; never accept the acting user id from a body. Scope user-owned queries by `userId` and return 404 for another user's resource.
+- Recruiter routes must load the recruiter's company from the database and verify `job.companyId` against it. An unauthorized job must look like `JOB_NOT_FOUND` (404), not reveal ownership. Recruiter job management may access DRAFT, PUBLISHED, and CLOSED jobs; candidate decks and recruiter swipes require PUBLISHED and return `409 JOB_NOT_PUBLISHED` otherwise.
+- Use global `ValidationPipe({ whitelist: true, transform: true })`. DTOs validate every body and query; trim free text, normalize emails, and transform numeric inputs.
+- Errors use `{ statusCode, message, code? }`. Clients branch on stable `code`, never message text. Do not expose Prisma details.
+- Never return password hashes, refresh-token data, deleted users, or internal ids to AI. Send no name/email/user id to AI prompts unless a future contract explicitly requires it.
+- Candidate privacy before a mutual match is mandatory. Do not expose a recruiter's candidate deck decision or a candidate's job decision to the other side.
+- AI endpoints are POST requests with the AI throttle and run only from explicit user actions.
+- Server Actions re-validate their input with zod; anything from the browser is untrusted.
+- Page guards (`auth()` in layouts) only hide pages. The API is the real authority — never skip a server-side check because the UI hides a button.
+- Never expose the access token to client components. `/api/auth/session` strips it; don't add `useSession` code that depends on it.
 - Validate every env var with zod at boot (`api/src/config/env.validation.ts`, `web/src/lib/env.ts`). Optional values use `optionalString`, so a blank `KEY=` line counts as unset.
-- Server Actions re-validate input with zod; anything from the browser is untrusted.
-- Page guards (`auth()` in layouts) only hide pages; the API is the real authority.
-- Never expose the access token to client components.
-- `web/AGENTS.md` contains a block that `next dev` rewrites (`BEGIN/END:nextjs-agent-rules`). Never edit inside it.
+- `web/AGENTS.md` contains a block between `BEGIN:nextjs-agent-rules` and `END:nextjs-agent-rules` that `next dev` rewrites. Never edit inside it.
+- The score is deterministic profile fit from 0 to 100. AI explains the score and recommends evidence-based improvements; it never calculates, changes, or presents the score as hiring probability. A score is never a mutual match. Unconfirmed skills use only `MENTIONED_IN_PROFILE` or `NO_SKILLS_LISTED`; these reason codes remain distinct from confirmed `missingSkills`.
 
-## 14. Git and team workflow
+## 7. Data and matching rules
 
-- **Branches** (one per developer, see the plan): `feature/candidate-ui` (Dev 1), `feature/recruiter-ui` (Dev 2), `feature/mutual-match` (Dev 3), `feature/ai-bot` (Dev 4). Short-lived sub-branches off these are fine.
-- `main` is protected: a PR is required, CI (`api (NestJS)` + `web (Next.js)`) must be green, and the branch must be up to date. No one can bypass this. Agents must never try to push to `main`. Commit or push only when asked. Never merge a PR without the team agreeing.
-- **Schema/migration PRs come from Dev 3 only, and merge first.** After pulling one, run `pnpm install && pnpm prisma migrate dev` in `api/`.
+- Change Prisma schema only through `pnpm prisma migrate dev --name <change>` and commit the migration. Never use `db push` for committed work or edit an applied migration.
+- CI applies every migration to an empty Postgres and fails if the result drifts from `schema.prisma`.
+- The Prisma client is generated into `api/src/database/generated/` (gitignored) by `postinstall`. If types are missing after a pull, run `pnpm prisma generate`.
+- New demo data goes in `prisma/seed-data.ts`. `src/database/seed-data.spec.ts` checks it (ids exist, companies marked `(demo)`, and the demo profile shows all three skill states).
+- Stable seed ids remain slugs such as `typescript` and `job-001`. Seed data must be idempotent and fictional.
+- `User` is soft-deleted; filter `deletedAt: null` and use `PUBLIC_USER_SELECT`, never a raw user row.
+- The current score is deterministic and pure: `score = round(70 * requiredRatio + 15 * niceToHaveRatio + 15 * preferenceFit)`, clamped to 0-100. Only listed candidate skills count; matched, unconfirmed, and missing skills remain distinct. Unknown preferences count as a neutral 0.5. When the formula changes, update `match-score.spec.ts` and `docs/architecture.md` in the same PR.
+- A candidate LIKE currently creates or preserves an `INTERESTED` self-tracker entry; it does not submit an application and must not be described as one.
+- Current `Job` rows have no publication field. The proposed recruiter model adds `status` with `DRAFT`, `PUBLISHED`, and `CLOSED`: existing seeded rows are backfilled/treated as `PUBLISHED`; recruiter-created jobs start as `DRAFT`; only `PUBLISHED` jobs appear in candidate discovery; recruiters may manage their own jobs in every status. `isDemo` labels fictional data and never controls visibility.
+
+## 8. Workflow and definition of done
+
+- Read the relevant code and tests before editing. Stay within [docs/team-ownership.md](docs/team-ownership.md); ask the owner before crossing a boundary.
+- **Prefer the smallest complete solution.** Don't add dependencies, abstractions or rewrites unless the task needs them. If a new dependency is necessary, say why, and put it in its own small PR.
+- Preserve working behavior and provide loading, empty, and error states for every new UI state. Every swipe has a button and keyboard alternative.
+- Keep UI copy short, plain, and in English. Use theme tokens; do not rely on color alone. Non-obvious code comments are written in Thai to match the repository.
+- Use PascalCase React components, plural kebab-case module directories, and DTO file names matching their class names.
+- After code changes, run lint, test, and build for every touched app; API changes also run `pnpm test:e2e`. **Never claim tests or builds passed unless you ran them in this session.** Report failures honestly, with the output.
+- **Testing expectations:**
+  - API: unit-test pure logic (scoring, fallbacks, seed data) and guards. `test/app.e2e-spec.ts` covers HTTP wiring with a mocked Prisma (no database needed). Add e2e cases for ownership (404), roles (403) and the double-LIKE → single-match path.
+  - Web: Vitest for schemas, formatters and interactive components (e.g. `SwipeDeck.test.tsx`).
+  - Tests must never call a real AI API. Mock the AI client.
+- AI-generated text in the UI always shows its source: AI-generated (check it against your real experience) or rule-based fallback.
+- **Definition of done** also requires:
+  - schema changes have a committed migration and the seed still runs;
+  - the product principles in section 1 still hold (no hiring promises, no invented facts, demo data labeled);
+  - known limitations are written down.
+- Update docs when behavior, score rules, security, schema, or API contracts change. Never hide unfinished work behind a finished-looking UI.
+- Never commit `.env`, credentials, secrets, or real personal data. New environment variables require validation and an `.env.example` entry.
+- Work on feature branches and use pull requests. Never push to `main` or bypass branch protection.
+
+### Commands
+
+**Use pnpm for everything — never `npx` or `npm run`.** `npx` can resolve a different Prisma/Nest version than the lockfile. Use `pnpm <script>`, `pnpm exec <bin>`, `pnpm prisma …`, and `pnpm dlx <pkg>` for one-off tools (e.g. `pnpm dlx shadcn@latest add dialog`).
+
+| Task | API | Web |
+|---|---|---|
+| Install | `pnpm install` | `pnpm install` |
+| Dev | `pnpm start:dev` | `pnpm dev` |
+| Lint | `pnpm lint:check` | `pnpm lint` |
+| Test | `pnpm test` / `pnpm test:e2e` | `pnpm test` |
+| Build | `pnpm build` | `pnpm build` |
+| Seed | `pnpm db:seed` (idempotent; resets the demo users' swipes) | - |
+| New migration | `pnpm prisma migrate dev --name <change>` (Developer 3 only) | - |
+| Reset DB | `pnpm prisma migrate reset` (drops data, re-seeds) | - |
+| Regenerate client | `pnpm prisma generate` | - |
+
+## 9. Documentation map
+
+- `README.md`: setup, user-facing overview, and implemented/planned status.
+- `docs/architecture.md`: current system and proposed two-sided architecture.
+- `docs/api-contract.md`: shared request/response contract; update deliberately and keep web types aligned when implementation lands.
+- `docs/team-ownership.md`: four developer ownership boundaries and integration points.
+- `docs/two-sided-plan.md`: implementation order, deployment notes, proposed schema details, and risks.
+
+## 10. Git and team workflow
+
+- `main` is protected: a PR is required, CI must be green, and agents must not push directly to `main` or bypass branch protection.
+- Schema and migration work comes from Developer 3 and merges first. Other developers do not edit `api/prisma/migrations/**`.
+- After pulling a schema change, run `pnpm install && pnpm prisma migrate dev` in `api/`.
+- Branches: one per developer, as listed in [docs/team-ownership.md](docs/team-ownership.md) (`feature/candidate-ui`, `feature/recruiter-ui`, `feature/mutual-match`, `feature/ai-bot`).
+- Commit or push only when asked. Never merge a PR without the team agreeing.
 - Commit `pnpm-lock.yaml` with any `package.json` change; CI installs with `--frozen-lockfile`.
-- CI (`.github/workflows/ci.yml`) must be green before merging.

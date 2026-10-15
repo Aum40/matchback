@@ -45,11 +45,9 @@ services:
         sync: false
       - key: MAIL_FROM_NAME
         value: MATCHBACK
-      # ไม่ใส่ = ปุ่ม AI ตอบแบบ rule-based (fallback) แอปยังใช้ได้ครบ
-      - key: ANTHROPIC_API_KEY
+      # ไม่ใส่ = ปุ่ม AI ตอบแบบ deterministic fallback; key นี้อยู่ฝั่ง server เท่านั้น
+      - key: GEMINI_API_KEY
         sync: false
-      - key: AI_MODEL
-        value: claude-opus-5-5
       # ไม่ใส่ = ปิดล็อกอินด้วย Google
       - key: GOOGLE_CLIENT_ID
         sync: false
