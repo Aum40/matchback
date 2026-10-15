@@ -5,7 +5,7 @@ import type {
 } from './ai.types';
 
 /**
- * คำตอบแบบ deterministic ตอนไม่มี ANTHROPIC_API_KEY หรือ AI ล่ม/ปฏิเสธ
+ * คำตอบแบบ deterministic ตอนไม่มี GEMINI_API_KEY, AI ล่ม, โควตาหมด หรือตอบไม่ครบ
  * สร้างจากผล calculateMatch() ล้วน ไม่เดาอะไรเพิ่ม จึงไม่มีทาง "แต่ง" ทักษะให้ผู้สมัคร
  * ต้องคืนรูปร่างเดียวกับคำตอบของ AI เสมอ (ดู ai.types.ts)
  */

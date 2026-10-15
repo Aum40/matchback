@@ -55,8 +55,8 @@ const envSchema = z
      * ไม่ใส่ = AI ปิด ทุก endpoint ที่ใช้ AI ตอบด้วยข้อความ deterministic (source: "fallback")
      * แอปยังใช้งานได้ครบ คนในทีมที่ไม่ได้ทำส่วน AI ไม่ต้องหา key มาใส่
      */
-    ANTHROPIC_API_KEY: optionalString,
-    AI_MODEL: z.string().trim().min(1).default('claude-opus-5-5'),
+    GEMINI_API_KEY: optionalString,
+    AI_MODEL: z.string().trim().min(1).default('gemini-3.8-flash'),
     /** รอ AI นานสุดเท่านี้ (ms) แล้วตอบด้วย fallback แทน หน้าเว็บจะได้ไม่ค้าง */
     AI_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30_000),
   })

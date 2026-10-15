@@ -93,8 +93,6 @@ Before a match, a recruiter receives only a `CandidateCard`: first name, profile
 
 `main` currently implements email/password and optional Google auth, public health/jobs/skills endpoints, candidate profiles, candidate job discovery/swipes, deterministic match analysis, AI/fallback explanation, Resume Coach, saved jobs, self-reported applications, and admin user management. It does not yet implement recruiter roles, companies, recruiter-owned jobs, recruiter swipes, explicit job publication states, mutual-match persistence/API, matches pages, or MATCHBACK Bot. Those are planned changes and must be labeled as planned until they land.
 
-**AI provider status:** the code on `main` still calls **Claude** through `@anthropic-ai/sdk` (`ANTHROPIC_API_KEY`, `AI_MODEL` in `api/src/infrastructure/ai/ai.service.ts`). The switch to Google Gemini described in this file is **planned** (owner: Developer 4). Until it lands, `GEMINI_API_KEY` has no effect and AI features use Claude, or the deterministic fallback when there is no key. Whoever lands the switch must update `env.validation.ts`, `.env.example`, the AI service tests and this note together.
-
 ## 4. Technical stack
 
 Use the versions declared by the repository manifests; do not add a second stack.
