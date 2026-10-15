@@ -1,53 +1,48 @@
-# MATCHBACK API contract (two-sided)
+# MATCHBACK API contract
 
-> **Status:** agreed contract for parallel development. Endpoints marked **NEW** don't exist yet. Endpoints marked **EXISTING** are live on `main`.
-> **Owner:** Developer 3 (backend). Any change to this file goes in its own small PR, announced to the whole team.
-> `web/src/lib/api/api.type.ts` mirrors the response types below. Keep them in sync in the same PR.
+> Shared contract for parallel development. `EXISTING` means the endpoint is on `main` today. `PROPOSED` means it must not be represented as implemented until its API, tests, and web flow land. Developer 3 owns contract changes and database-facing implementation.
 
-## Conventions (unchanged)
+## Conventions
 
-- **Base URL:** `API_URL` (web server only — the browser never calls the API).
-- **Auth:** every endpoint needs `Authorization: Bearer <accessToken>` unless marked **public**.
-- **Roles** come from the access token. `USER` = candidate (the name is kept to avoid a data migration), `RECRUITER` = **NEW**, `ADMIN`.
-- **Errors:** `{ statusCode, message, code? }`. Branch on `code`, never on `message`.
-  - A resource that exists but belongs to someone else returns **404**, not 403, so ids can't be probed.
-  - Calling an endpoint for the wrong role returns **403** (RolesGuard).
-- **Swipe direction enum:** `"LIKE" | "SKIP"` (UI labels: LIKE / NOPE).
-- **Ids:**
-  - Jobs: string (`job-001` for seeded jobs; uuid for recruiter-created jobs).
-  - Users, companies, matches, applications: uuid.
+- Base URL is the server-only `API_URL`; the browser never calls the API directly.
+- Every endpoint requires `Authorization: Bearer <accessToken>` unless marked public.
+- `USER` is the existing candidate role. `RECRUITER` and the two-sided endpoints are proposed. `ADMIN` is reserved for administration and cannot be selected at sign-up.
+- Errors use `{ statusCode: number, message: string, code?: string }`. Clients branch on `code`, never on message text.
+- A resource owned by another user/company returns 404. A valid token with the wrong role returns 403.
+- `SwipeDirection` is `"LIKE" | "SKIP"`; the UI may label these LIKE and NOPE.
+- Job ids are stable strings for seeded demo jobs (`job-001`) and may be UUIDs for recruiter-created jobs. User, company, and match ids are UUIDs.
+- JSON uses the API's camelCase response names. Validation uses the Nest global `ValidationPipe({ whitelist: true, transform: true })`.
 
-## Shared types
+## Shared response types
 
 ```ts
-type Role = "USER" | "RECRUITER" | "ADMIN";          // USER = candidate
+type Role = "USER" | "RECRUITER" | "ADMIN";
 type SwipeDirection = "LIKE" | "SKIP";
-
-/** What a candidate exposes to recruiters BEFORE a mutual match — no email, no name surname. */
-type CandidateCard = {
-  candidateId: string;            // user id
-  displayName: string;            // first name only (e.g. "Ann")
-  headline: string | null;
-  education: string | null;
-  experience: string | null;
-  projects: string | null;
-  skills: { id: string; name: string }[];
-  match: MatchSummary;            // deterministic, same formula as candidate side
-};
+type AiSource = "ai" | "fallback";
 
 type MatchSummary = {
-  score: number;                  // 0–100, profile fit — NOT a hiring probability
+  score: number;                 // 0-100 profile fit, never a hiring probability
   matchedSkillIds: string[];
   unconfirmedSkillIds: string[];
   missingSkillIds: string[];
 };
 
-/** A real mutual match: both sides said LIKE. Never derived from a score. */
+type CandidateCard = {
+  candidateId: string;
+  displayName: string;           // first name only before a match
+  headline: string | null;
+  education: string | null;
+  experience: string | null;
+  projects: string | null;
+  skills: { id: string; name: string }[];
+  match: MatchSummary;
+};
+
 type MutualMatch = {
   id: string;
   createdAt: string;
-  job: Job;                       // existing Job type (+ companyId)
-  candidate: {                    // contact details are revealed only after the match
+  job: Job;
+  candidate: {
     candidateId: string;
     name: string;
     email: string;
@@ -55,96 +50,272 @@ type MutualMatch = {
   };
 };
 
-/** Returned by BOTH swipe endpoints. `match` is non-null only when this swipe completed a mutual match. */
 type SwipeResult = {
+  jobId: string;
   direction: SwipeDirection;
+  matchCreated: boolean;
   match: { id: string; createdAt: string } | null;
-};
-
-type Company = {
-  id: string;
-  name: string;
-  description: string | null;
-  website: string | null;
+  application?: { id: string; status: ApplicationStatus } | null;
 };
 ```
 
-## Auth
+`matchCreated` is true only when this swipe creates/completes the real mutual match. It is false for an ordinary LIKE, an ordinary SKIP, and a repeated/idempotent swipe after the match already exists. `match` is non-null only for the request that creates/completes the match. The API never returns a match from a score alone.
 
-| Method | Path | Who | Change |
-|---|---|---|---|
-| POST | `/auth/register` | public | **CHANGED:** optional `accountType: "CANDIDATE" \| "RECRUITER"` (default `CANDIDATE`). `ADMIN` can never be self-assigned. CANDIDATE maps to role `USER`. |
-| POST | `/auth/login`, `/auth/google`, `/auth/refresh`, `/auth/logout` | public | EXISTING, unchanged. `user.role` may now be `RECRUITER`. Google sign-up always creates a candidate. |
+## Authentication and roles
 
-## Candidate side
+### `POST /auth/register` - EXISTING, candidate only today; recruiter role PROPOSED
 
-All of these get `@Roles(Role.USER)` (**CHANGED**: today they accept any logged-in role).
+Current `main` request:
 
-| Method | Path | Body | Response | Notes |
-|---|---|---|---|---|
-| GET | `/jobs/discover` | — | `DiscoverJob[]` | EXISTING. Only jobs that are `isOpen` (NEW field, default true). |
-| POST | `/jobs/:id/swipe` | `{ direction }` | `SwipeResult` | **CHANGED:** adds `match`. A LIKE still creates an `INTERESTED` application (existing behavior). |
-| GET | `/jobs/:jobId/match` | — | `JobMatchResponse` | EXISTING |
-| POST | `/jobs/:jobId/match/explanation` | — | `MatchExplanation` | EXISTING (AI or fallback) |
-| POST | `/resume/coach` | `{ jobId }` | `ResumeCoaching` | EXISTING |
-| GET/PUT | `/candidates/me` | profile | `CandidateProfile` | EXISTING |
-| GET/PATCH/DELETE | `/applications[/:id]` | — | `Application` | EXISTING |
-| DELETE | `/jobs/swipes` | — | `{ cleared }` | EXISTING. **Must not delete mutual matches.** |
+```json
+{ "name": "Ann Example", "email": "ann@example.com", "password": "StrongPass1!" }
+```
 
-## Recruiter side (all NEW, `@Roles(Role.RECRUITER)`)
+Proposed additive request:
 
-| Method | Path | Body | Response | Errors |
-|---|---|---|---|---|
-| GET | `/companies/me` | — | `Company \| null` | — |
-| PUT | `/companies/me` | `{ name, description?, website? }` | `Company` | Creates the company on first call and links the recruiter to it |
-| GET | `/recruiter/jobs` | — | `(Job & { isOpen: boolean; likeCount: number; matchCount: number })[]` | `COMPANY_REQUIRED` (409) if no company |
-| POST | `/recruiter/jobs` | `CreateJobDto`* | `Job` | `COMPANY_REQUIRED` (409) |
-| PATCH | `/recruiter/jobs/:jobId` | partial `CreateJobDto` + `isOpen?` | `Job` | `JOB_NOT_FOUND` (404) if not this company's job |
-| GET | `/recruiter/jobs/:jobId/candidates` | — | `CandidateCard[]` (not yet swiped for this job, best match first) | `JOB_NOT_FOUND` (404) |
-| POST | `/recruiter/jobs/:jobId/candidates/:candidateId/swipe` | `{ direction }` | `SwipeResult` | `JOB_NOT_FOUND`, `CANDIDATE_NOT_FOUND` (404) |
-| GET | `/recruiter/jobs/:jobId/matches` | — | `MutualMatch[]` | `JOB_NOT_FOUND` (404) |
+```json
+{
+  "name": "Ann Example",
+  "email": "ann@example.com",
+  "password": "StrongPass1!",
+  "accountType": "CANDIDATE"
+}
+```
 
-\* `CreateJobDto`: `title`, `location`, `workArrangement`, `employmentType`, `salaryMin?`, `salaryMax?`, `description`, `skills: { id: string; required: boolean }[]` (1–15 items, ids must exist → `UNKNOWN_SKILL` 400).
-- `isDemo` is always `false` for recruiter-created jobs.
-- `company` (display string) is filled from the company name.
+`accountType` is optional and defaults to `CANDIDATE`; `CANDIDATE` maps to `USER`, `RECRUITER` maps to `RECRUITER`, and `ADMIN` is rejected. Response is the existing login session shape:
 
-**Deck rules** (`GET /recruiter/jobs/:jobId/candidates`):
-- Show only candidates who have a profile with at least one skill.
-- Exclude candidates this job has already swiped (either direction).
-- **Never reveal whether the candidate liked the job.** The deck order is by match score only.
+```json
+{
+  "access_token": "...",
+  "refresh_token": "...",
+  "user": { "id": "uuid", "email": "ann@example.com", "name": "Ann Example", "role": "USER", "status": "ACTIVE", "createdAt": "..." }
+}
+```
 
-## Matches (NEW)
+Validation: 400 for invalid name/email/password/account type; 409 `EMAIL_TAKEN` for a duplicate email. The server normalizes email, trims name, and never accepts a role field from the client.
 
-| Method | Path | Who | Response |
-|---|---|---|---|
-| GET | `/matches` | USER or RECRUITER | `MutualMatch[]`. A candidate gets their matches; a recruiter gets matches for their company's jobs. |
-| GET | `/matches/:id` | USER or RECRUITER | `MutualMatch`. 404 unless the caller is the candidate or a recruiter of the job's company. |
+### `POST /auth/login`, `/auth/google`, `/auth/refresh`, `/auth/logout` - EXISTING
 
-**No endpoint creates a match.** Matches are created only as a side effect of a swipe (see Mutual match rules).
+These keep the current request/response and throttling behavior. Login/refresh returns the role from the database, so a future role change is reflected in a new access token. Suspended accounts return 403 `ACCOUNT_SUSPENDED`; invalid credentials/session return 401 with stable error handling.
 
-## Assistant — MATCHBACK Bot (NEW)
+### `GET /users/me` - EXISTING
 
-| Method | Path | Who | Body | Response |
-|---|---|---|---|---|
-| POST | `/assistant/messages` | USER (RECRUITER later if time allows) | `{ messages: { role: "user" \| "assistant"; content: string }[] (1–20, each ≤ 2000 chars), jobId?: string }` | `{ reply: string; source: "ai" \| "fallback" }` |
+Authenticated `USER`, `RECRUITER`, or `ADMIN`; returns the public user record without password, token, or session internals.
 
-- The conversation is stateless on the server: the web sends the history each time.
-- If `jobId` is given, the bot gets the same `MatchContext` as the explanation endpoint.
-- It reuses `AiService` rules: never invent experience, never claim hiring odds.
-- Throttled with `@AiThrottle()`.
-- **U-Bot:** not integrated. There is no verified documentation or credentials. Do not add calls to any U-Bot endpoint until the team has verified official docs and access.
+## Candidate profile and jobs
 
-## Mutual match rules (normative)
+All candidate endpoints below use `@Roles(Role.USER)` when role enforcement lands. Until then, the current `main` accepts any authenticated user; this is an implementation gap, not permission to expose recruiter data.
 
-1. A match exists for `(candidateId, jobId)` **only if** both are true:
-   - a `JobInteraction` LIKE from the candidate for that job, and
-   - a `CandidateInteraction` LIKE for that candidate on that job, made by a recruiter of the job's company.
-2. **One match per pair:** `@@unique([candidateId, jobId])`.
-3. **Creation algorithm** (same for both swipe endpoints):
-   1. Commit the swipe (upsert the interaction).
-   2. **After** that commit, read the other side's interaction.
-   3. If both are LIKE, `match.createMany({ data: [...], skipDuplicates: true })`, then read the match back and return it.
+### `GET /candidates/me` - EXISTING
 
-   Why this is race-safe without SERIALIZABLE: each request reads only after its own write is committed, so whichever check runs last sees both LIKEs. The unique constraint absorbs the case where both checks see both likes.
-4. Changing a LIKE to SKIP later does **not** delete an existing match (no un-matching in MVP).
-5. The UI shows "It's a Match!" **only** when `SwipeResult.match !== null`. A high score is not a match.
+Returns the authenticated candidate's profile, listed skills, completeness, and update timestamp. No user id is supplied by the client.
+
+### `PUT /candidates/me` - EXISTING
+
+Replaces profile fields omitted by the form with empty/null values according to the current DTO contract.
+
+```json
+{
+  "headline": "Junior frontend developer",
+  "education": "BSc Computer Science",
+  "experience": "Built a campus event portal.",
+  "projects": "Created a TypeScript project.",
+  "desiredRoles": ["Frontend Developer"],
+  "preferredSalaryMin": 25000,
+  "preferredWorkArrangement": "HYBRID",
+  "skillIds": ["typescript", "react"]
+}
+```
+
+Strings are trimmed and length-limited; salary is a non-negative integer or null; work arrangement is `ONSITE | HYBRID | REMOTE`; skill ids must exist. Invalid input returns 400. The operation is transactional so the profile and skill list stay together.
+
+### `GET /jobs` and `GET /jobs/:id` - EXISTING, public
+
+Return public `Job` records. Every demo job has `isDemo: true`; the web labels it. The current schema has no `companyId` or `isOpen`; those are proposed additive fields.
+
+### `GET /jobs/discover` - EXISTING, candidate flow
+
+Returns jobs not yet swiped by the authenticated user, sorted by deterministic fit score. Proposed behavior additionally filters `isOpen = true` and requires candidate role.
+
+### `POST /jobs/:jobId/swipe` - EXISTING, response extension PROPOSED
+
+Request:
+
+```json
+{ "direction": "LIKE" }
+```
+
+Current response includes `{ "jobId": "job-001", "direction": "LIKE", "application": { "id": "uuid", "status": "INTERESTED" } }` for LIKE and a null application for SKIP. The proposed response adds `matchCreated` and `match` as defined by `SwipeResult`.
+
+Rules: the job must exist; the candidate's interaction is upserted; LIKE creates/preserves `INTERESTED` but never submits an application. The future mutual-match check runs after the swipe commit and never trusts a client-supplied candidate id.
+
+### `DELETE /jobs/swipes` - EXISTING
+
+Deletes the authenticated candidate's `JobInteraction` rows and returns `{ "cleared": 3 }`. It must not delete applications or mutual matches.
+
+## Compatibility and Resume Coach
+
+### `GET /jobs/:jobId/match` - EXISTING
+
+Authenticated candidate; returns:
+
+```json
+{
+  "job": { "id": "job-001", "title": "Frontend Developer", "isDemo": true },
+  "match": {
+    "score": 78,
+    "breakdown": { "required": 70, "niceToHave": 0, "preferences": 8 },
+    "matchedSkills": [{ "id": "react", "name": "React", "required": true }],
+    "unconfirmedSkills": [{ "id": "typescript", "name": "TypeScript", "required": false, "reason": "MENTIONED_IN_PROFILE" }],
+    "missingSkills": [],
+    "preferenceFit": { "workArrangement": 1, "salary": 0.5, "role": 0.1 }
+  },
+  "aiEnabled": false
+}
+```
+
+The score is deterministic and computed by the API. It is profile fit, not a percentage or hiring probability. `unconfirmedSkills` mean insufficient profile information, not confirmed gaps.
+
+### `POST /jobs/:jobId/match/explanation` - EXISTING
+
+Authenticated candidate, AI throttle, no request body. Returns:
+
+```json
+{
+  "summary": "...",
+  "strengths": ["..."],
+  "gaps": ["..."],
+  "nextSteps": ["..."],
+  "source": "ai"
+}
+```
+
+The server sends safe `MatchContext` to `AiService`. AI explains the computed result and does not recalculate it. `source` is `fallback` when no key, timeout, API error, refusal, or invalid output occurs. The request still succeeds.
+
+### `POST /resume/coach` - EXISTING
+
+Authenticated candidate, AI throttle.
+
+```json
+{ "jobId": "job-001" }
+```
+
+Returns `{ emphasize, bulletSuggestions, highlight, cautions, source }`. Suggestions use only facts already in the candidate profile and must not invent achievements, numbers, skills, or experience. Unknown job ids return 404 `JOB_NOT_FOUND`; invalid input returns 400.
+
+## Recruiter profile, companies, and jobs - PROPOSED
+
+The MVP has no separate recruiter profile model. The recruiter profile is the authenticated public `User` plus its one `Company` relation. A recruiter cannot choose a company id in a request.
+
+### `GET /companies/me`
+
+Role: `RECRUITER`. Returns `Company | null` for the caller's company.
+
+### `PUT /companies/me`
+
+Role: `RECRUITER`. Creates the company on first call, otherwise replaces editable fields and keeps the caller linked to it.
+
+```json
+{ "name": "North Star Labs (demo)", "description": "...", "website": "https://example.test" }
+```
+
+Returns `Company`. Validate non-empty name, trimmed bounded text, and a valid optional URL. A recruiter may belong to only one company in the MVP.
+
+### `GET /recruiter/jobs`
+
+Role: `RECRUITER`. Requires a company; otherwise 409 `COMPANY_REQUIRED`. Returns only the caller's jobs with `isOpen`, `likeCount`, and `matchCount`.
+
+### `POST /recruiter/jobs`
+
+Role: `RECRUITER`; requires a company. Request:
+
+```json
+{
+  "title": "Frontend Developer",
+  "location": "Bangkok",
+  "workArrangement": "HYBRID",
+  "employmentType": "FULL_TIME",
+  "salaryMin": 30000,
+  "salaryMax": 45000,
+  "description": "Build accessible web products.",
+  "skills": [
+    { "id": "typescript", "required": true },
+    { "id": "react", "required": false }
+  ]
+}
+```
+
+Validate 1-15 existing skills, salary ordering, enums, bounded trimmed text, and `UNKNOWN_SKILL` 400. Set `companyId` from the caller's database relation, `company` from the company name, and `isDemo = false`; never accept those authority fields from the body.
+
+### `PATCH /recruiter/jobs/:jobId`
+
+Role: `RECRUITER`. Accepts a partial create payload plus `isOpen`. A job outside the caller's company returns 404 `JOB_NOT_FOUND`; it never reveals whether the id exists.
+
+## Recruiter candidate deck and swipes - PROPOSED
+
+### `GET /recruiter/jobs/:jobId/candidates`
+
+Role: `RECRUITER`. The job must belong to the caller's company and be open. Returns `CandidateCard[]`, best deterministic score first, only for candidates with at least one profile skill and no existing `CandidateInteraction` for that job. It never reveals the candidate's `JobInteraction` direction.
+
+### `POST /recruiter/jobs/:jobId/candidates/:candidateId/swipe`
+
+Role: `RECRUITER`. Request:
+
+```json
+{ "direction": "LIKE" }
+```
+
+The API verifies job ownership, candidate existence and candidate role, then upserts one decision for `(jobId, candidateId)`. It returns `SwipeResult` with the same `matchCreated`/`match` semantics as the candidate swipe. A recruiter cannot create a match directly.
+
+Errors: 400 validation; 403 wrong role; 404 `JOB_NOT_FOUND` for an unauthorized job and `CANDIDATE_NOT_FOUND` for an unavailable candidate; 409 only for a database conflict not absorbed by idempotent upsert.
+
+## Mutual matches - PROPOSED
+
+### `GET /matches`
+
+Role: `USER` or `RECRUITER`. Candidates receive their matches. Recruiters receive matches for jobs owned by their company. Contact fields are returned only because the mutual match is already confirmed.
+
+### `GET /matches/:id`
+
+Role: `USER` or `RECRUITER`. Returns one `MutualMatch` only when the caller is the candidate or an authorized recruiter for the job's company; otherwise 404.
+
+There is deliberately no `POST`, `PATCH`, `DELETE`, unmatch, or block endpoint. Matches are created only as side effects of the two swipe endpoints. The database enforces one match per `(candidateId, jobId)`.
+
+## MATCHBACK Bot - PROPOSED
+
+### `POST /assistant/messages`
+
+Role: `USER` for the MVP; recruiter access may be added only with an explicit contract update. AI throttle applies.
+
+```json
+{
+  "messages": [
+    { "role": "user", "content": "What should I clarify before applying?" }
+  ],
+  "jobId": "job-001"
+}
+```
+
+Validation: 1-20 messages, roles `user | assistant`, each content at most 2000 characters, total request bounded, optional existing job id. The server is stateless and returns:
+
+```json
+{ "reply": "...", "source": "ai" }
+```
+
+With `jobId`, the service builds the same safe job/candidate `MatchContext` used by explanations. It can explain fit, requirements, unconfirmed information, resume improvements, interview questions, and career guidance. It must not invent facts, claim hiring odds, expose private fields, or call official U-Bot. AI failures use the deterministic fallback and still return 200.
+
+## Error and idempotency rules
+
+| Situation | Status/code |
+|---|---|
+| Malformed body/query/enum/length | 400 validation error |
+| Unknown skill | 400 `UNKNOWN_SKILL` |
+| Unknown job or unauthorized company job | 404 `JOB_NOT_FOUND` |
+| Unknown candidate card target | 404 `CANDIDATE_NOT_FOUND` |
+| Missing recruiter company | 409 `COMPANY_REQUIRED` |
+| Duplicate email | 409 `EMAIL_TAKEN` |
+| Wrong role | 403 from `RolesGuard` |
+| Suspended account | 403 `ACCOUNT_SUSPENDED` |
+| Invalid/expired access session | 401 |
+| AI unavailable | Successful response with `source: "fallback"` |
+
+Swipes are idempotent upserts. Repeating the same direction does not create duplicate interactions, applications, or matches. The match unique constraint and `createMany({ skipDuplicates: true })` absorb simultaneous match creation. Resetting candidate swipes does not delete matches.
