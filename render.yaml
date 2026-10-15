@@ -1,0 +1,53 @@
+# Render Blueprint สำหรับ API (NestJS) — ขั้นตอนเต็มอยู่ใน docs/deploy.md
+# ค่าลับทุกตัวใช้ sync: false (Render ถามตอนสร้าง) หรือ generateValue: true (Render สุ่มให้)
+# ห้ามใส่ค่าจริงในไฟล์นี้ — repo เป็น public
+services:
+  - type: web
+    name: matchback-api
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: api
+    # Render ตั้ง NODE_ENV=production ซึ่งทำให้ pnpm ข้าม devDependencies
+    # แต่ nest CLI และ prisma CLI อยู่ใน devDependencies → ต้อง --prod=false ไม่งั้น build/migrate พัง
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
+    # ใช้เฉพาะ migration ที่ commit ไว้ (migrate deploy ไม่สร้าง migration ใหม่) แล้วค่อยเปิด API
+    startCommand: pnpm prisma migrate deploy && pnpm start:prod
+    healthCheckPath: /health
+    envVars:
+      # engines ใน package.json บังคับ >= 24.15 (engineStrict) — ไม่ตั้ง = install ล้ม
+      - key: NODE_VERSION
+        value: 24.20.0
+      - key: NODE_ENV
+        value: production
+      # Neon: ใช้ connection string แบบ direct (ไม่ใช่ pooled) migrate ผ่าน pooler ไม่ได้
+      - key: DATABASE_URL
+        sync: false
+      # URL ของเว็บบน Vercel ไม่มี / ปิดท้าย — ครั้งแรกใส่ https://example.com ไปก่อนได้ แล้วแก้ทีหลัง
+      - key: FRONTEND_URL
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRES_IN
+        value: "900"
+      - key: REFRESH_TOKEN_EXPIRES_IN
+        value: "2592000"
+      # เว็บพิสูจน์ตัวด้วยรหัสนี้ตอนส่ง IP ผู้ใช้มา (X-Client-IP) — คัดลอกค่าที่สุ่มได้ไปใส่ใน Vercel ด้วย
+      - key: INTERNAL_API_SECRET
+        generateValue: true
+      # หน้า API มี load balancer ของ Render อยู่หนึ่งชั้น
+      - key: TRUST_PROXY
+        value: "1"
+      # production บังคับมีทั้งสองตัว (env.validation.ts) ไม่งั้น API ไม่ยอมเริ่ม
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: MATCHBACK
+      # ไม่ใส่ = ปุ่ม AI ตอบแบบ deterministic fallback; key นี้อยู่ฝั่ง server เท่านั้น
+      - key: GEMINI_API_KEY
+        sync: false
+      # ไม่ใส่ = ปิดล็อกอินด้วย Google
+      - key: GOOGLE_CLIENT_ID
+        sync: false

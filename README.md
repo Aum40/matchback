@@ -136,3 +136,13 @@ Log in with the seeded demo candidate account configured by `SEED_DEMO_PASSWORD`
 Work on feature branches and open pull requests into protected `main`. CI must pass before merging. Schema and migration changes land through Developer 3 first. See [docs/team-ownership.md](docs/team-ownership.md) for file boundaries and [docs/api-contract.md](docs/api-contract.md) for the shared integration contract.
 
 Never commit `.env` files, API keys, secrets, or real personal data. Do not push directly to `main`.
+
+## Deploying
+
+Step-by-step for Neon + Render + Vercel: **[docs/deploy.md](docs/deploy.md)**. The API uses the [`render.yaml`](render.yaml) Blueprint.
+
+- **API:** run `pnpm build && pnpm prisma migrate deploy && pnpm db:seed`, then `pnpm start:prod`. Set:
+  - `NODE_ENV=production` and the Brevo mail settings (`BREVO_API_KEY` and `MAIL_FROM`, required in production)
+  - `TRUST_PROXY` and `INTERNAL_API_SECRET`
+  - optionally the server-side `GEMINI_API_KEY`; without it, AI features use deterministic fallback responses
+- **Web:** set `AUTH_URL` to the public URL, and set `INTERNAL_API_SECRET` to the same value as the API.

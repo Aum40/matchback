@@ -182,7 +182,7 @@ See [docs/team-ownership.md](team-ownership.md). It is the only ownership source
 
 ## Deployment and submission (required by the official participant guide)
 
-Judges must be able to open a **deployed demo website** and use the real product. A localhost demo does not count. **Deploy the current `main` today** so hosting problems show up early, then let every merge redeploy.
+Judges must be able to open a **deployed demo website** and use the real product. **Step-by-step guide: [deploy.md](deploy.md)** (with [`render.yaml`](../render.yaml)). A localhost demo does not count. **Deploy the current `main` today** so hosting problems show up early, then let every merge redeploy.
 
 | Piece | Suggested host | Owner | Notes |
 |---|---|---|---|
