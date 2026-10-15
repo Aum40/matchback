@@ -4,6 +4,15 @@
 
 This is the canonical source of product and engineering rules for MATCHBACK. Read it before changing the repository. `api/CLAUDE.md`, `api/AGENTS.md`, `web/CLAUDE.md`, and `web/AGENTS.md` are stubs that import this file; add shared rules here, not to the stubs.
 
+## 0. Team roles and the current plan — read first
+
+Four developers and one deployer work in parallel, each with their own AI agent. Before you change anything:
+
+1. Work out which role you are working for: **Developer 1** (candidate web + shared UI), **Developer 2** (recruiter web + sign-up), **Developer 3** (API, database, contract), **Developer 4** (AI + MATCHBACK Bot), or **Deploy** (Railway + Vercel). Infer it from the branch name (`feature/candidate-ui-*`, `feature/recruiter-ui-*`, `feature/api-*`, `feature/ai-bot-*`) or the user's request. If it's still unclear, ask the user once.
+2. Read that role's brief in [docs/team-tasks.md](docs/team-tasks.md), plus its "กติกากลาง" (shared rules) block. The brief lists the P0/P1 tasks, the agreed route names, the timeline, and who to ask for what.
+3. Only edit files that [docs/team-ownership.md](docs/team-ownership.md) assigns to that role. If the task needs another owner's file, stop and write a proposed diff for the user to forward. Don't edit it yourself.
+4. Finish P0 before starting P1. A working demo by the deadline beats extra features.
+
 ## 1. Product specification
 
 MATCHBACK is a two-sided, AI-assisted "Tinder for Jobs" for university students, recent graduates, early-career professionals, and recruiters.
@@ -131,7 +140,7 @@ web/
   src/lib/actions/               Server Actions (all mutations)
   src/lib/auth.ts, proxy.ts      next-auth config; access-token refresh
   src/app/(auth)/ (app)/         login/signup; logged-in pages (recruiter area planned under (app)/recruiter)
-docs/                            api-contract, team-ownership, two-sided-plan, architecture, deploy
+docs/                            api-contract, team-ownership, team-tasks, two-sided-plan, architecture, deploy
 render.yaml                      Render Blueprint for the API (see docs/deploy.md)
 ```
 
@@ -218,6 +227,7 @@ render.yaml                      Render Blueprint for the API (see docs/deploy.m
 - `docs/architecture.md`: current system and proposed two-sided architecture.
 - `docs/api-contract.md`: shared request/response contract; update deliberately and keep web types aligned when implementation lands.
 - `docs/team-ownership.md`: four developer ownership boundaries and integration points.
+- `docs/team-tasks.md`: current status, each role's task brief (P0/P1), agreed routes, timeline, and merge order. Read your role's brief before starting work (see section 0).
 - `docs/two-sided-plan.md`: implementation order, deployment notes, proposed schema details, and risks.
 
 ## 10. Git and team workflow
@@ -225,6 +235,6 @@ render.yaml                      Render Blueprint for the API (see docs/deploy.m
 - `main` is protected: a PR is required, CI must be green, and agents must not push directly to `main` or bypass branch protection.
 - Schema and migration work comes from Developer 3 and merges first. Other developers do not edit `api/prisma/migrations/**`.
 - After pulling a schema change, run `pnpm install && pnpm prisma migrate dev` in `api/`.
-- Branches: one per developer, as listed in [docs/team-ownership.md](docs/team-ownership.md) (`feature/candidate-ui`, `feature/recruiter-ui`, `feature/mutual-match`, `feature/ai-bot`).
+- Branches: one small branch per task, cut from the latest `main` and prefixed by role: `feature/candidate-ui-<topic>` (Dev 1), `feature/recruiter-ui-<topic>` (Dev 2), `feature/api-<topic>` (Dev 3), `feature/ai-bot-<topic>` (Dev 4). Pull `main` into your branch before each work session.
 - Commit or push only when asked. Never merge a PR without the team agreeing.
 - Commit `pnpm-lock.yaml` with any `package.json` change; CI installs with `--frozen-lockfile`.

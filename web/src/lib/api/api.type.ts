@@ -192,3 +192,12 @@ export type SwipeResult = {
   /** ฝั่งผู้สมัคร LIKE = รายการ INTERESTED; ฝั่ง recruiter เป็น null เสมอ */
   application: { id: string; status: ApplicationStatus } | null;
 };
+
+/** MATCHBACK Bot (POST /assistant/messages) — ประวัติแชตเก็บฝั่งเว็บ ไม่บันทึกที่ API */
+export type AssistantMessage = { role: "user" | "assistant"; content: string };
+
+export type AssistantResponse = {
+  reply: string;
+  /** fallback = Gemini ใช้ไม่ได้ ตอบแบบ deterministic แทน — หน้าเว็บต้องไม่พัง */
+  source: "ai" | "fallback";
+};
