@@ -25,7 +25,7 @@ Not present yet:
 - Recruiter candidate deck and recruiter swipes.
 - Mutual-match persistence and read-only matches API.
 - Candidate/recruiter matches pages and match celebration modal.
-- MATCHBACK Bot.
+- Candidate-facing MATCHBACK Bot; recruiter Bot access is out of scope for the MVP.
 
 ## 2. Proposed database changes: Developer 3 only
 

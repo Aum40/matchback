@@ -179,6 +179,8 @@ The prompt rules prohibit invented candidate facts, re-scoring, and hiring promi
 
 ### Proposed Bot path
 
+The hackathon MVP exposes the Bot to candidate (`USER`) accounts only. Recruiter Bot access is out of scope and requires a future contract decision.
+
 ```text
 Web Bot panel
   -> Server Action / apiFetch

@@ -34,7 +34,7 @@ The repository is being prepared for the U-Hackathon 2026 AI Track, with a deadl
 - Per-job recruiter candidate deck with privacy-safe `CandidateCard` data.
 - Persisted recruiter swipes and real mutual matches.
 - Candidate and recruiter matches pages plus a backend-confirmed match celebration modal.
-- MATCHBACK Bot: a contextual AI career assistant with a deterministic fallback.
+- Candidate-facing MATCHBACK Bot: a contextual AI career assistant with a deterministic fallback.
 
 Planned features must remain labeled as planned until their API, UI, tests, and demo path are working. Official U-Bot integration is optional and blocked until official documentation, authorization, an endpoint, and credentials are verified. MATCHBACK Bot is not the official U-Bot.
 

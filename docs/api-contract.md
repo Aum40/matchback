@@ -516,7 +516,7 @@ Client behavior:
 
 ### POST /assistant/messages - PROPOSED
 
-Role USER for the MVP; recruiter access requires a later contract decision. AI throttle applies.
+Role USER only for the hackathon MVP; recruiter Bot access is out of scope and must not be added without a separate contract decision. AI throttle applies.
 
 Request:
 

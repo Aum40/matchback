@@ -52,6 +52,7 @@ Before a match, a recruiter receives only a `CandidateCard`: first name, profile
 - Missing profile information is not a skill gap. Label it as "not enough information" or unconfirmed.
 - Resume Coach may suggest clearer wording, relevant evidence, skills, or projects, but must not fabricate achievements or experience.
 - MATCHBACK Bot is a contextual career assistant for job fit, requirements, skill gaps, resume bullets, interview preparation, and career guidance. It is stateless: the web sends the conversation history, optionally with a job id.
+- MATCHBACK Bot is candidate-facing in the hackathon MVP. Recruiter Bot access is out of scope unless a future API contract explicitly adds it.
 - AI is called only after an explicit user action, is throttled, and uses the minimum profile data needed. The API key stays server-side.
 - No API key, timeout, API error, refusal, or invalid output may break the request. Return the deterministic fallback with `source: "fallback"`.
 - MATCHBACK Bot is not the official U-Bot. Integrate official U-Bot only after verified documentation, authorization, endpoint, and credentials exist. Never invent an endpoint or claim integration.
