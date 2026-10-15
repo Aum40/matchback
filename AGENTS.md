@@ -91,7 +91,7 @@ Before a match, a recruiter receives only a `CandidateCard`: first name, profile
 
 ## 3. Current implementation status
 
-`main` currently implements email/password and optional Google auth, public health/jobs/skills endpoints, candidate profiles, candidate job discovery/swipes, deterministic match analysis, AI/fallback explanation, Resume Coach, saved jobs, self-reported applications, and admin user management. It does not yet implement recruiter roles, companies, recruiter-owned jobs, recruiter swipes, explicit job publication states, mutual-match persistence/API, matches pages, or MATCHBACK Bot. Those are planned changes and must be labeled as planned until they land.
+`main` currently implements email/password and optional Google auth, public health/jobs/skills endpoints, candidate profiles, candidate job discovery/swipes, deterministic match analysis, AI/fallback explanation, Resume Coach, saved jobs, self-reported applications, and admin user management. The data layer for the two-sided product is in place: the `RECRUITER` role (chosen at sign-up via `accountType`), `Company`, job ownership (`Job.companyId`), job `status` (only `PUBLISHED` is visible to candidates), and the `CandidateInteraction` and `Match` tables, with `@Roles(Role.USER)` on candidate routes. It does not yet implement recruiter endpoints, recruiter swipes, mutual-match creation/API, matches pages, or MATCHBACK Bot. Those are planned changes and must be labeled as planned until they land.
 
 ## 4. Technical stack
 
@@ -173,7 +173,7 @@ render.yaml                      Render Blueprint for the API (see docs/deploy.m
 - `User` is soft-deleted; filter `deletedAt: null` and use `PUBLIC_USER_SELECT`, never a raw user row.
 - The current score is deterministic and pure: `score = round(70 * requiredRatio + 15 * niceToHaveRatio + 15 * preferenceFit)`, clamped to 0-100. Only listed candidate skills count; matched, unconfirmed, and missing skills remain distinct. Unknown preferences count as a neutral 0.5. When the formula changes, update `match-score.spec.ts` and `docs/architecture.md` in the same PR.
 - A candidate LIKE currently creates or preserves an `INTERESTED` self-tracker entry; it does not submit an application and must not be described as one.
-- Current `Job` rows have no publication field. The proposed recruiter model adds `status` with `DRAFT`, `PUBLISHED`, and `CLOSED`: existing seeded rows are backfilled/treated as `PUBLISHED`; recruiter-created jobs start as `DRAFT`; only `PUBLISHED` jobs appear in candidate discovery; recruiters may manage their own jobs in every status. `isDemo` labels fictional data and never controls visibility.
+- `Job.status` is `DRAFT`, `PUBLISHED` or `CLOSED` (migration `two_sided_matching` backfilled pre-existing rows to `PUBLISHED`); recruiter-created jobs start as `DRAFT`; only `PUBLISHED` jobs appear in candidate discovery; recruiters may manage their own jobs in every status. `isDemo` labels fictional data and never controls visibility.
 
 ## 8. Workflow and definition of done
 

@@ -10,8 +10,10 @@ datasource db {
   provider = "postgresql"
 }
 
+/// USER = ผู้สมัคร (candidate) — คงชื่อเดิมไว้ ไม่งั้นต้อง migrate ข้อมูลและ token ที่ออกไปแล้วทั้งหมด
 enum Role {
   USER
+  RECRUITER
   ADMIN
 }
 
@@ -44,7 +46,15 @@ model User {
   skills          CandidateSkill[]
   jobInteractions JobInteraction[]
   applications    Application[]
+  /// เฉพาะ recruiter: บริษัทที่สังกัด (หนึ่งคนหนึ่งบริษัท) ผู้สมัครเป็น null เสมอ
+  /// สิทธิ์จัดการงานเช็กจากค่านี้ในฐานข้อมูลทุกครั้ง ไม่เชื่อจาก token
+  companyId       String?                @map("company_id") @db.Uuid
+  company         Company?               @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  recruiterSwipes CandidateInteraction[] @relation("RecruiterSwipes")
+  receivedSwipes  CandidateInteraction[] @relation("CandidateSwiped")
+  matches         Match[]
 
+  @@index([companyId])
   @@map("users")
 }
 
@@ -94,6 +104,13 @@ enum SwipeDirection {
 }
 
 /// สถานะที่ผู้สมัครอัปเดตเอง — ระบบไม่ได้รับข้อมูลจากนายจ้างอัตโนมัติ
+/// DRAFT = recruiter ยังไม่เปิด, PUBLISHED = ผู้สมัครเห็นและปัดได้, CLOSED = ปิดรับแล้ว (ซ่อนจากผู้สมัคร)
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
 enum ApplicationStatus {
   INTERESTED
   APPLIED
@@ -128,12 +145,23 @@ model Job {
   description     String
   /// true = ข้อมูลตัวอย่างสำหรับเดโม ไม่ใช่ประกาศงานจริง UI ต้องติดป้ายบอกเสมอ
   isDemo          Boolean         @default(true) @map("is_demo")
+  /// งานที่ recruiter สร้างเริ่มเป็น DRAFT ผู้สมัครเห็นเฉพาะ PUBLISHED
+  /// (งาน seed เดิมถูก backfill เป็น PUBLISHED ใน migration two_sided_matching)
+  status          JobStatus       @default(DRAFT)
+  /// เจ้าของงาน null = แถวเก่าที่ไม่มีเจ้าของ (seed ผูกงานเดโมทุกงานกับบริษัทเดโมแล้ว)
+  /// ชื่อ relation เป็น owner เพราะ `company` เป็นคอลัมน์ชื่อบริษัทสำหรับแสดงผลอยู่แล้ว
+  companyId       String?         @map("company_id") @db.Uuid
+  owner           Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  skills       JobSkill[]
-  interactions JobInteraction[]
-  applications Application[]
+  skills                JobSkill[]
+  interactions          JobInteraction[]
+  applications          Application[]
+  candidateInteractions CandidateInteraction[]
+  matches               Match[]
 
+  @@index([status])
+  @@index([companyId])
   @@map("jobs")
 }
 
@@ -211,4 +239,57 @@ model Application {
   @@unique([userId, jobId])
   @@index([userId, status])
   @@map("applications")
+}
+
+/// บริษัทของ recruiter — หนึ่ง recruiter มีได้บริษัทเดียว (ไม่มีระบบทีม/หลายบริษัทใน MVP)
+model Company {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  website     String?
+  /// true = บริษัทสมมติจาก seed ต้องติดป้าย Demo data เหมือนงานเดโม
+  isDemo      Boolean  @default(false) @map("is_demo")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  recruiters User[]
+  jobs       Job[]
+
+  @@map("companies")
+}
+
+/// การตัดสินใจของฝั่งบริษัทต่อผู้สมัครหนึ่งคนสำหรับงานหนึ่งงาน (ปัดซ้ำ = เขียนทับ)
+/// หนึ่งคำตัดสินต่อคู่ (งาน, ผู้สมัคร) ไม่ว่า recruiter คนไหนของบริษัทเป็นคนปัด
+/// recruiterId เก็บไว้แค่ว่าใครปัด ไม่ได้ใช้ตัดสินสิทธิ์
+model CandidateInteraction {
+  jobId       String         @map("job_id")
+  candidateId String         @map("candidate_id") @db.Uuid
+  recruiterId String         @map("recruiter_id") @db.Uuid
+  direction   SwipeDirection
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  job       Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate User @relation("CandidateSwiped", fields: [candidateId], references: [id], onDelete: Cascade)
+  recruiter User @relation("RecruiterSwipes", fields: [recruiterId], references: [id], onDelete: Cascade)
+
+  @@id([jobId, candidateId])
+  @@index([candidateId])
+  @@index([recruiterId])
+  @@map("candidate_interactions")
+}
+
+/// mutual match: สร้างเฉพาะใน swipe service ตอนที่ทั้งสองฝั่ง LIKE แล้วเท่านั้น
+/// ไม่มี endpoint ให้ client สร้าง/ลบเอง และ SKIP ทีหลังไม่ลบ match ที่เกิดแล้ว
+/// unique (candidateId, jobId) คือสิ่งที่กันการกดพร้อมกันไม่ให้เกิด match ซ้ำ
+model Match {
+  id          String   @id @default(uuid()) @db.Uuid
+  jobId       String   @map("job_id")
+  candidateId String   @map("candidate_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  job       Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate User @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobId])
+  @@index([jobId])
+  @@map("matches")
 }

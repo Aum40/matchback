@@ -1,6 +1,6 @@
 import { CandidatesService } from '@/candidates/candidates.service';
 import { Prisma } from '@/database/generated/prisma/client';
-import { SwipeDirection } from '@/database/generated/prisma/enums';
+import { JobStatus, SwipeDirection } from '@/database/generated/prisma/enums';
 import { PrismaService } from '@/database/prisma.service';
 import { calculateMatch, MatchJob } from '@/matching/match-score';
 import { Injectable, NotFoundException } from '@nestjs/common';
@@ -54,6 +54,7 @@ export class JobsService {
 
   async findAll() {
     const jobs = await this.prisma.job.findMany({
+      where: { status: JobStatus.PUBLISHED },
       select: JOB_SELECT,
       orderBy: { createdAt: 'asc' },
     });
@@ -61,8 +62,9 @@ export class JobsService {
   }
 
   async findOne(id: string): Promise<JobResponse> {
-    const job = await this.prisma.job.findUnique({
-      where: { id },
+    // DRAFT/CLOSED ตอบ 404 เหมือนไม่มีงานนี้ (จัดการได้ทาง route ของ recruiter เท่านั้น)
+    const job = await this.prisma.job.findFirst({
+      where: { id, status: JobStatus.PUBLISHED },
       select: JOB_SELECT,
     });
     if (!job) {
@@ -82,7 +84,10 @@ export class JobsService {
     const [{ candidate }, jobs] = await Promise.all([
       this.candidatesService.getMatchInputs(userId),
       this.prisma.job.findMany({
-        where: { interactions: { none: { userId } } },
+        where: {
+          status: JobStatus.PUBLISHED,
+          interactions: { none: { userId } },
+        },
         select: JOB_SELECT,
       }),
     ]);

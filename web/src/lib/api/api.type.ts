@@ -1,5 +1,6 @@
 /** ต้องตรงกับ PUBLIC_USER_SELECT ใน api/src/users/users.service.ts */
-export type Role = "USER" | "ADMIN";
+/** USER = ผู้สมัคร (ชื่อเดิม), RECRUITER = ฝั่งบริษัท */
+export type Role = "USER" | "RECRUITER" | "ADMIN";
 export type UserStatus = "ACTIVE" | "SUSPENDED";
 
 export type UserResponse = {
@@ -32,6 +33,8 @@ export type Paginated<T> = {
 export type WorkArrangement = "ONSITE" | "HYBRID" | "REMOTE";
 export type EmploymentType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP";
 export type SwipeDirection = "LIKE" | "SKIP";
+/** ผู้สมัครเห็นเฉพาะ PUBLISHED; DRAFT/CLOSED จัดการได้ทางหน้า recruiter เท่านั้น */
+export type JobStatus = "DRAFT" | "PUBLISHED" | "CLOSED";
 export type ApplicationStatus =
   | "INTERESTED"
   | "APPLIED"

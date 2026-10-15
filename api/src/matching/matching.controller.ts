@@ -1,3 +1,5 @@
+import { Roles } from '@/common/decorator/roles.decorator';
+import { Role } from '@/database/generated/prisma/enums';
 import { CurrentUser } from '@/common/decorator/current-user.decorator';
 import { AiThrottle } from '@/common/decorator/throttle.decorator';
 import {
@@ -10,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { MatchingService } from './matching.service';
 
+// เฉพาะผู้สมัคร: recruiter/admin ได้ 403 (RolesGuard)
+@Roles(Role.USER)
 @Controller('jobs/:jobId/match')
 export class MatchingController {
   constructor(private readonly matchingService: MatchingService) {}

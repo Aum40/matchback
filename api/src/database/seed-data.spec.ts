@@ -1,5 +1,12 @@
 import { calculateMatch } from '@/matching/match-score';
-import { DEMO_PROFILE, JOBS, SKILLS } from '../../prisma/seed-data';
+import {
+  COMPANIES,
+  DEMO_CANDIDATE_2,
+  DEMO_PROFILE,
+  DEMO_RECRUITER,
+  JOBS,
+  SKILLS,
+} from '../../prisma/seed-data';
 
 /** seed ผิด = migrate reset ล้มกลางเดโม จับให้ได้ตั้งแต่ใน CI */
 describe('seed data', () => {
@@ -70,5 +77,31 @@ describe('seed data', () => {
       expect.arrayContaining(['typescript', 'nextjs']),
     );
     expect(result.missingSkills.length).toBeGreaterThan(0);
+  });
+
+  // seed จับคู่งานกับบริษัทด้วยชื่อ: ชื่อไม่ตรงตัวเดียว = งานไม่มีเจ้าของ recruiter จัดการไม่ได้
+  it('gives every demo job a demo company by exact name', () => {
+    const names = new Set(COMPANIES.map((company) => company.name));
+    expect(JOBS.every((job) => names.has(job.company))).toBe(true);
+    expect(COMPANIES.every((company) => company.name.endsWith('(demo)'))).toBe(
+      true,
+    );
+    expect(new Set(COMPANIES.map((company) => company.id)).size).toBe(
+      COMPANIES.length,
+    );
+  });
+
+  // สคริปต์เดโม: recruiter LIKE ผู้สมัครคนที่สองใน job-001 แล้วต้องเกิด match จริงทันที
+  it('demo recruiter owns the job the second candidate already liked', () => {
+    const recruiterCompany = COMPANIES.find(
+      (company) => company.id === DEMO_RECRUITER.companyId,
+    );
+    for (const jobId of DEMO_CANDIDATE_2.likedJobIds) {
+      const job = JOBS.find((item) => item.id === jobId);
+      expect(job?.company).toBe(recruiterCompany?.name);
+    }
+    expect(DEMO_CANDIDATE_2.skillIds.every((id) => skillIds.has(id))).toBe(
+      true,
+    );
   });
 });

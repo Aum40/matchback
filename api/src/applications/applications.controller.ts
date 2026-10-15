@@ -1,3 +1,5 @@
+import { Roles } from '@/common/decorator/roles.decorator';
+import { Role } from '@/database/generated/prisma/enums';
 import { FindApplicationsDto } from '@/applications/dto/find-applications.dto';
 import { UpdateApplicationDto } from '@/applications/dto/update-application.dto';
 import { CurrentUser } from '@/common/decorator/current-user.decorator';
@@ -17,6 +19,8 @@ import { ApplicationsService } from './applications.service';
  * งานที่สนใจและสถานะการสมัคร — ผู้ใช้อัปเดตเองทั้งหมด
  * ระบบไม่ได้รับข้อมูลจากนายจ้าง อย่าเพิ่มอะไรที่ทำให้ดูเหมือนอัปเดตอัตโนมัติ
  */
+// เฉพาะผู้สมัคร: recruiter/admin ได้ 403 (RolesGuard)
+@Roles(Role.USER)
 @Controller('applications')
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}

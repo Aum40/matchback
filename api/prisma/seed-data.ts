@@ -295,3 +295,90 @@ export const DEMO_PROFILE = {
     'communication',
   ] satisfies SkillId[],
 };
+
+/**
+ * บริษัทสมมติ ชื่อต้องตรงกับ Job.company ในรายการ JOBS ทุกตัว (seed ใช้ชื่อจับคู่งานกับเจ้าของ)
+ * id เป็น uuid คงที่: seed upsert ซ้ำได้ และ recruiter เดโมผูกกับบริษัทเดิมทุกครั้ง
+ */
+export const COMPANIES = [
+  {
+    id: '0b9a1d10-0000-4000-8000-000000000001',
+    name: 'Lumen Pixel Studio (demo)',
+    description:
+      'Small product studio building web and mobile apps for clients.',
+  },
+  {
+    id: '0b9a1d10-0000-4000-8000-000000000002',
+    name: 'Orbit Commerce (demo)',
+    description: 'E-commerce platform for mid-sized online shops.',
+  },
+  {
+    id: '0b9a1d10-0000-4000-8000-000000000003',
+    name: 'Northwind Logistics Tech (demo)',
+    description: 'Shipment tracking software for regional carriers.',
+  },
+  {
+    id: '0b9a1d10-0000-4000-8000-000000000004',
+    name: 'Paywise Fintech (demo)',
+    description: 'Payment services and banking integrations.',
+  },
+  {
+    id: '0b9a1d10-0000-4000-8000-000000000005',
+    name: 'Greenleaf EdTech (demo)',
+    description: 'Learning platform used by schools.',
+  },
+  {
+    id: '0b9a1d10-0000-4000-8000-000000000006',
+    name: 'Riverside Retail Group (demo)',
+    description: 'Retail chain with stores and an online shop.',
+  },
+  {
+    id: '0b9a1d10-0000-4000-8000-000000000007',
+    name: 'Insightloop Analytics (demo)',
+    description: 'Analytics consultancy for marketing teams.',
+  },
+  {
+    id: '0b9a1d10-0000-4000-8000-000000000008',
+    name: 'Coastline Hotels Group (demo)',
+    description: 'Hotel group with properties in southern Thailand.',
+  },
+  {
+    id: '0b9a1d10-0000-4000-8000-000000000009',
+    name: 'Stratus Cloud Services (demo)',
+    description: 'Managed cloud hosting and support.',
+  },
+] as const;
+
+/** recruiter เดโม: สังกัดบริษัทที่เป็นเจ้าของ job-001 (งานที่ใช้ในสคริปต์เดโม) */
+export const DEMO_RECRUITER = {
+  name: 'Demo Recruiter',
+  companyId: COMPANIES[0].id,
+};
+
+/**
+ * ผู้สมัครคนที่สอง: กด LIKE job-001 ไว้แล้วตั้งแต่ seed
+ * พอ recruiter เดโม LIKE คนนี้บนเวที จะเกิด mutual match จริงทันที (ทั้งสองฝั่งเป็นการปัดจริงใน DB)
+ */
+export const DEMO_CANDIDATE_2 = {
+  name: 'Ploy Demo',
+  headline: 'Recent graduate building accessible React interfaces',
+  education: 'B.Eng. Software Engineering (2026), demo university',
+  experience:
+    'Frontend intern at a fintech startup for 6 months: built React forms with TypeScript and wrote component tests.',
+  projects:
+    'Accessible recipe finder in React with keyboard navigation.\nPortfolio site designed in Figma and built with HTML and CSS.',
+  desiredRoles: ['Frontend Developer'],
+  preferredSalaryMin: 28000,
+  preferredWorkArrangement: 'HYBRID' as const,
+  skillIds: [
+    'html',
+    'css',
+    'javascript',
+    'typescript',
+    'react',
+    'figma',
+    'git',
+    'testing',
+  ] satisfies SkillId[],
+  likedJobIds: ['job-001'],
+};
