@@ -1,6 +1,8 @@
 # pnpm 11 รัน install script ของ dependency เฉพาะตัวที่อนุญาตไว้ตรงนี้
 # ตัวที่ไม่อยู่ในรายการ = install ล้ม ต้องตัดสินใจ true/false ให้ทุกตัว
 allowBuilds:
+  # preinstall เป็นแค่ echo ไม่ต้องรัน
+  '@google/genai': false
   # มากับ @nestjs/cli มี binary ที่ build มาแล้วให้ ไม่ต้อง compile เอง
   '@parcel/watcher': false
   '@prisma/client': true
@@ -8,6 +10,8 @@ allowBuilds:
   bcrypt: true
   esbuild: true
   prisma: true
+  # มากับ @google/genai: postinstall เตรียม CLI ของ protobufjs ซึ่งเราไม่ได้ใช้
+  protobufjs: false
   unrs-resolver: true
 
 # install บน Node/pnpm ที่ไม่ตรงกับ "engines" ใน package.json = ล้ม ไม่ใช่แค่เตือน

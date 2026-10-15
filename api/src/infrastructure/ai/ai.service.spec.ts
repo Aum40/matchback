@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { ApiError } from '@google/genai';
 import { Logger } from '@nestjs/common';
 import { calculateMatch } from '@/matching/match-score';
 import { AiService } from './ai.service';
@@ -43,16 +43,22 @@ const context: MatchContext = {
 function serviceWith(env: Record<string, unknown>) {
   const config = {
     get: (key: string) =>
-      ({ AI_MODEL: 'claude-opus-5-5', AI_TIMEOUT_MS: 30000, ...env })[key],
+      ({ AI_MODEL: 'gemini-3.8-flash', AI_TIMEOUT_MS: 30000, ...env })[key],
   };
   return new AiService(config as never);
 }
 
 /** แทน client จริงด้วยของปลอม — test ไม่เรียก API และไม่เสียเงิน */
-function withFakeClient(service: AiService, parse: jest.Mock) {
-  Object.assign(service, { client: { beta: { messages: { parse } } } });
+function withFakeClient(service: AiService, generateContent: jest.Mock) {
+  Object.assign(service, { client: { models: { generateContent } } });
   return service;
 }
+
+/** รูปคำตอบของ Gemini ที่ AiService อ่าน: ข้อความ JSON + เหตุผลที่หยุด */
+const geminiReply = (body: unknown, finishReason = 'STOP') => ({
+  text: typeof body === 'string' ? body : JSON.stringify(body),
+  candidates: [{ finishReason }],
+});
 
 describe('AiService', () => {
   beforeEach(() => {
@@ -62,7 +68,7 @@ describe('AiService', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('is disabled and uses the deterministic fallback without an API key', async () => {
-    const service = serviceWith({ ANTHROPIC_API_KEY: undefined });
+    const service = serviceWith({ GEMINI_API_KEY: undefined });
 
     expect(service.enabled).toBe(false);
     const result = await service.explainMatch(context);
@@ -101,9 +107,7 @@ describe('AiService', () => {
     };
     const service = withFakeClient(
       serviceWith({}),
-      jest
-        .fn()
-        .mockResolvedValue({ stop_reason: 'end_turn', parsed_output: parsed }),
+      jest.fn().mockResolvedValue(geminiReply(parsed)),
     );
 
     await expect(service.explainMatch(context)).resolves.toEqual({
@@ -112,13 +116,13 @@ describe('AiService', () => {
     });
   });
 
-  it('falls back when the model refuses', async () => {
+  it('falls back when the prompt is blocked by safety filters', async () => {
     const service = withFakeClient(
       serviceWith({}),
       jest.fn().mockResolvedValue({
-        stop_reason: 'refusal',
-        stop_details: { category: null },
-        parsed_output: null,
+        text: undefined,
+        promptFeedback: { blockReason: 'SAFETY' },
+        candidates: [],
       }),
     );
 
@@ -127,13 +131,58 @@ describe('AiService', () => {
     });
   });
 
+  it('falls back when the answer was cut off (thinking + output hit the token cap)', async () => {
+    const service = withFakeClient(
+      serviceWith({}),
+      jest
+        .fn()
+        .mockResolvedValue(geminiReply('{"summary": "half', 'MAX_TOKENS')),
+    );
+
+    await expect(service.explainMatch(context)).resolves.toMatchObject({
+      source: 'fallback',
+    });
+  });
+
+  it('falls back when the JSON does not match the schema', async () => {
+    const service = withFakeClient(
+      serviceWith({}),
+      jest.fn().mockResolvedValue(geminiReply({ summary: 'only this' })),
+    );
+
+    await expect(service.explainMatch(context)).resolves.toMatchObject({
+      source: 'fallback',
+    });
+  });
+
+  it('asks Gemini for JSON with the shared schema and the rules prompt', async () => {
+    const generateContent = jest
+      .fn()
+      .mockResolvedValue(
+        geminiReply({ summary: 's', strengths: [], gaps: [], nextSteps: [] }),
+      );
+    await withFakeClient(serviceWith({}), generateContent).explainMatch(
+      context,
+    );
+
+    const [request] = generateContent.mock.calls[0] as [
+      {
+        model: string;
+        config: { responseMimeType: string; systemInstruction: string };
+      },
+    ];
+    expect(request.model).toBe('gemini-3.8-flash');
+    expect(request.config.responseMimeType).toBe('application/json');
+    expect(request.config.systemInstruction).toContain('Never invent');
+  });
+
   it('falls back when the API errors instead of failing the request', async () => {
     const service = withFakeClient(
       serviceWith({}),
       jest
         .fn()
         .mockRejectedValue(
-          new Anthropic.APIConnectionTimeoutError({ message: 'timed out' }),
+          new ApiError({ message: 'quota exceeded', status: 429 }),
         ),
     );
 

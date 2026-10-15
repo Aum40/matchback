@@ -86,7 +86,7 @@ export type JobMatchResponse = {
   aiEnabled: boolean;
 };
 
-/** source = "fallback": ไม่มี ANTHROPIC_API_KEY หรือ AI ใช้ไม่ได้ในตอนนั้น */
+/** source = "fallback": ไม่มี GEMINI_API_KEY หรือ AI ใช้ไม่ได้ในตอนนั้น (ล่ม, โควตาหมด, ตอบไม่ครบ) */
 export type MatchExplanation = {
   summary: string;
   strengths: string[];
