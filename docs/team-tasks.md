@@ -17,7 +17,9 @@
 | MATCHBACK Bot (`POST /assistant/messages`) | ❌ มีแค่ contract |
 | Deploy (Railway + Vercel) | ❌ Aum ทำ |
 
-บัญชีเดโมหลัง `pnpm db:seed`: `demo@matchback.dev`, `demo2@matchback.dev` (ผู้สมัคร, รหัส `SEED_DEMO_PASSWORD`), `recruiter@matchback.dev` (รหัส `SEED_RECRUITER_PASSWORD`, เป็นเจ้าของ job-001 กับ job-009) — demo2 กด LIKE job-001 ไว้แล้ว recruiter กด LIKE demo2 ที่ job-001 = เกิด match ทันที
+บัญชีเดโมหลัง `pnpm db:seed`: `demo@matchback.dev`, `demo2@matchback.dev` (ผู้สมัคร, รหัส `SEED_DEMO_PASSWORD`), `recruiter@matchback.dev` (รหัส `SEED_RECRUITER_PASSWORD`, เป็นเจ้าของ job-001 กับ job-009) — สิ่งที่ seed ตั้งไว้ให้เดโม (รัน `pnpm db:seed` ซ้ำ = รีเซ็ตกลับแบบนี้):
+- **Try as candidate** (`demo@`): recruiter กด LIKE demo ไว้ที่ job-001 แล้ว → demo กด LIKE job-001 (การ์ดใบแรกใน Discover) = "It's a Match!" ทันที
+- **Try as recruiter**: deck ของ job-001 มี 8 คน (Ploy = demo2 + ผู้สมัครเดโม 7 คน `demo-*@example.com` ที่ล็อกอินไม่ได้) — Ploy, Krit, Pim กด LIKE job-001 ไว้แล้ว recruiter LIKE = match ส่วนคนอื่นไม่เกิด match เหมือนของจริง · job-009 มี Nida, Pim ที่ LIKE ไว้
 
 ## ไทม์ไลน์
 
