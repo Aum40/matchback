@@ -517,9 +517,9 @@ Client behavior:
 2. If the request times out, retry the same swipe. If the retry returns isMatched: true but matchCreated: false, do not replay the creation celebration; refresh/open the existing match.
 3. Never show "It's a Match!" from isMatched alone, from a high score, or from a candidate/recruiter LIKE without the API result.
 
-## MATCHBACK Bot - PROPOSED
+## MATCHBACK Bot - IMPLEMENTED
 
-### POST /assistant/messages - PROPOSED
+### POST /assistant/messages - IMPLEMENTED
 
 Role USER only for the hackathon MVP; recruiter Bot access is out of scope and must not be added without a separate contract decision. AI throttle applies.
 
@@ -539,8 +539,8 @@ Validation and cost controls:
 - 1-20 messages.
 - Each message content is at most 2,000 characters.
 - Combined message content is at most 20,000 characters; larger requests return 400 ASSISTANT_INPUT_TOO_LARGE.
-- Roles are only user and assistant.
-- jobId is optional but, when present, must identify an accessible job.
+- Roles are only user and assistant. The last message must be from the user; otherwise 400 ASSISTANT_LAST_MESSAGE_NOT_USER.
+- jobId is optional but, when present, must identify a PUBLISHED job; otherwise 404 JOB_NOT_FOUND. With jobId the Bot gets the same profile/job/score context as the match analysis; without it, only the caller's own profile.
 - The server sends only the minimum safe profile/job context, makes one Gemini model call per request, caps generated output at 1,200 tokens, and applies the AI throttle. The client cannot choose a model or token budget.
 - Conversation history is not persisted. The server does not expose the API key, user id, email, or private recruiter data to the prompt.
 
@@ -550,7 +550,7 @@ Response:
 { "reply": "...", "source": "ai" }
 ~~~
 
-The response is `AssistantResponse`; `source` is `fallback` when the deterministic fallback was used.
+The response is `AssistantResponse` (`web/src/lib/api/api.type.ts`); `source` is `fallback` when the deterministic fallback was used. The web keeps the history in client state and sends only the latest messages that fit the limits.
 
 The Bot can explain fit, requirements, unconfirmed information, resume improvements, interview questions, and career guidance. It must validate generated claims against the known profile/job context; it must not invent facts, claim hiring odds, expose pre-match contact data, or present a score as a mutual match. U-Bot is not used in MATCHBACK. Missing key, timeout, API error, refusal, or invalid output returns a deterministic context-based reply with source: "fallback" and does not fail the page.
 
