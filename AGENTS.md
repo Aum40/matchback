@@ -17,6 +17,10 @@ MATCHBACK is a two-sided, AI-assisted "Tinder for Jobs" for university students,
 
 The hackathon deadline is **16 October 2026 at 14:00 ICT**. A small, working end-to-end demo is more important than extra features.
 
+### Submission
+
+Judges score exactly the submitted version and require a public repository, a deployed demo website with demo-account access, and a viewable pitch deck. If anything changes after submission, submit again before the deadline. List only partner tools actually used. This repository started from a pre-existing starter template; report that honestly.
+
 ### Candidate experience
 
 The candidate MVP includes authentication, profile editing, skills, education, experience, projects, a desktop-first fully responsive job swipe deck, deterministic compatibility analysis, AI explanation, Resume Coach, saved jobs, self-reported application tracking, and a mutual matches page.
@@ -51,11 +55,14 @@ Before a match, a recruiter receives only a `CandidateCard`: first name, profile
 - Use only candidate-provided facts. Never invent skills, experience, achievements, employers, numbers, or qualifications.
 - Missing profile information is not a skill gap. Label it as "not enough information" or unconfirmed.
 - Resume Coach may suggest clearer wording, relevant evidence, skills, or projects, but must not fabricate achievements or experience.
-- MATCHBACK Bot is a contextual career assistant for job fit, requirements, skill gaps, resume bullets, interview preparation, and career guidance. It is stateless: the web sends the conversation history, optionally with a job id.
+- MATCHBACK Bot is a candidate-only contextual career assistant for job fit, requirements, skill gaps, resume bullets, interview preparation, and career guidance. It is stateless: the web sends the conversation history, optionally with a job id.
 - MATCHBACK Bot is candidate-facing in the hackathon MVP. Recruiter Bot access is out of scope unless a future API contract explicitly adds it.
-- AI is called only after an explicit user action, is throttled, and uses the minimum profile data needed. The API key stays server-side.
+- The NestJS API calls Google Gemini for explanations, skill-gap recommendations, Resume Coach, and the candidate-only MATCHBACK Bot. Gemini is called only after an explicit user action, is throttled, and receives the minimum profile/job data needed. The Gemini API key is stored only in a server-side environment variable and is never exposed to frontend code.
+- Compatibility scoring remains deterministic server code on a 0-100 scale. Gemini may explain the score and recommend evidence-based improvements, but it never calculates or changes the score. The score is not hiring probability and is not a mutual match.
+- AI output is validated against the known candidate profile and job facts. Never invent skills, experience, achievements, employers, numbers, or qualifications.
 - No API key, timeout, API error, refusal, or invalid output may break the request. Return the deterministic fallback with `source: "fallback"`.
-- MATCHBACK Bot is not the official U-Bot. Integrate official U-Bot only after verified documentation, authorization, endpoint, and credentials exist. Never invent an endpoint or claim integration.
+- MATCHBACK Bot requests are limited to 20 messages, 2,000 characters per message, and 20,000 total characters, with a 1,200-token output cap, one model call per request, throttling, and no conversation persistence.
+- MATCHBACK does not use U-Bot. The MATCHBACK Bot is a separate candidate-only feature backed by Gemini through `AiService`.
 
 ## 2. Scope
 
@@ -73,7 +80,7 @@ Before a match, a recruiter receives only a `CandidateCard`: first name, profile
 - Multiple companies per recruiter, recruiter teams, or complex permissions.
 - Job scraping, external job feeds, or employer integrations.
 - Blockchain, payments, complex analytics dashboards, resume PDF parsing, email/push notification infrastructure, custom ML training, and a second auth system.
-- Official U-Bot integration until the verification gate above is satisfied.
+- U-Bot is not used in MATCHBACK; the candidate-only MATCHBACK Bot uses the documented Gemini-backed `AiService` path.
 
 ## 3. Current implementation status
 
@@ -89,7 +96,7 @@ Use the versions declared by the repository manifests; do not add a second stack
 | API | NestJS 11.2.x, REST, class-validator DTOs |
 | Database | PostgreSQL, Prisma 7.9.x with `@prisma/adapter-pg` |
 | Auth | next-auth 5.0.0-beta.32 on the web; JWT access tokens and rotating refresh tokens in the API |
-| AI | `@anthropic-ai/sdk`, isolated behind `api/src/infrastructure/ai/`, with deterministic fallback |
+| AI | Google Gemini API, isolated behind `api/src/infrastructure/ai/`, with deterministic fallback |
 | Tests | Jest + supertest for API; Vitest + Testing Library for web |
 | Package manager | pnpm 11.8.0 |
 | Runtime | Node 24.x, `>=24.15 <25` |
@@ -101,7 +108,7 @@ API and web are independent projects with independent lockfiles. Run commands in
 - The browser never calls the API directly. Next.js Server Components read through `web/src/lib/api/*.api.ts`; mutations go through Server Actions in `web/src/lib/actions/`; `apiFetch` adds the bearer token.
 - The API owns authorization, scoring, skill classification, application rules, match creation, and the data sent to AI. The web does not recompute scores or infer matches.
 - Controllers handle HTTP only. Business logic belongs in services; pure scoring and fallback logic must have no Nest or Prisma imports.
-- Only `AiService` imports `@anthropic-ai/sdk`.
+- Only `AiService` may call the Gemini client. Keep the Gemini API key server-side; frontend code must never import the client or read the key.
 - Web response types are handwritten in `web/src/lib/api/api.type.ts`; do not import API source files into the web.
 - [docs/team-ownership.md](docs/team-ownership.md) is authoritative for file ownership. [docs/api-contract.md](docs/api-contract.md) is authoritative for HTTP types and endpoint behavior. [docs/two-sided-plan.md](docs/two-sided-plan.md) contains implementation order and risk notes and must not contradict either file.
 
@@ -116,27 +123,23 @@ API and web are independent projects with independent lockfiles. Run commands in
 - Never return password hashes, refresh-token data, deleted users, or internal ids to AI. Send no name/email/user id to AI prompts unless a future contract explicitly requires it.
 - Candidate privacy before a mutual match is mandatory. Do not expose a recruiter's candidate deck decision or a candidate's job decision to the other side.
 - AI endpoints are POST requests with the AI throttle and run only from explicit user actions.
-- The score is deterministic profile fit from 0 to 100. AI explains the score and recommends evidence-based improvements; it never calculates, changes, or presents the score as hiring probability. A score is never a mutual match.
+- The score is deterministic profile fit from 0 to 100. AI explains the score and recommends evidence-based improvements; it never calculates, changes, or presents the score as hiring probability. A score is never a mutual match. Unconfirmed skills use only `MENTIONED_IN_PROFILE` or `NO_SKILLS_LISTED`; these reason codes remain distinct from confirmed `missingSkills`.
 
 ## 7. Data and matching rules
 
 - Change Prisma schema only through `pnpm prisma migrate dev --name <change>` and commit the migration. Never use `db push` for committed work or edit an applied migration.
 - Stable seed ids remain slugs such as `typescript` and `job-001`. Seed data must be idempotent and fictional.
 - `User` is soft-deleted; filter `deletedAt: null` and use `PUBLIC_USER_SELECT`, never a raw user row.
-- The current score is deterministic and pure:
-
-  `score = round(70 * requiredRatio + 15 * niceToHaveRatio + 15 * preferenceFit)`, clamped to 0-100.
-
-  Only listed candidate skills count. Matched, unconfirmed (`MENTIONED_IN_PROFILE` or `NO_SKILLS_LISTED`), and missing skills remain distinct. The score is profile fit, never a percentage or hiring prediction.
-
+- The current score is deterministic and pure: `score = round(70 * requiredRatio + 15 * niceToHaveRatio + 15 * preferenceFit)`, clamped to 0-100. Only listed candidate skills count; matched, unconfirmed, and missing skills remain distinct.
 - A candidate LIKE currently creates or preserves an `INTERESTED` self-tracker entry; it does not submit an application and must not be described as one.
-- Current `Job` rows have no publication field. The proposed recruiter model adds a `status` enum with `DRAFT`, `PUBLISHED`, and `CLOSED`: existing seeded rows are backfilled/treated as `PUBLISHED`; recruiter-created jobs start as `DRAFT`; only `PUBLISHED` jobs appear in candidate discovery; recruiters may manage their own jobs in every status. `isDemo` labels fictional data and never controls visibility.
+- Current `Job` rows have no publication field. The proposed recruiter model adds `status` with `DRAFT`, `PUBLISHED`, and `CLOSED`: existing seeded rows are backfilled/treated as `PUBLISHED`; recruiter-created jobs start as `DRAFT`; only `PUBLISHED` jobs appear in candidate discovery; recruiters may manage their own jobs in every status. `isDemo` labels fictional data and never controls visibility.
 
 ## 8. Workflow and definition of done
 
 - Read the relevant code and tests before editing. Stay within [docs/team-ownership.md](docs/team-ownership.md); ask the owner before crossing a boundary.
 - Preserve working behavior and provide loading, empty, and error states for every new UI state. Every swipe has a button and keyboard alternative.
 - Keep UI copy short, plain, and in English. Use theme tokens; do not rely on color alone. Non-obvious code comments are written in Thai to match the repository.
+- Use PascalCase React components, plural kebab-case module directories, and DTO file names matching their class names.
 - After code changes, run lint, test, and build for every touched app; API changes also run `pnpm test:e2e`. Report failures honestly.
 - Update docs when behavior, score rules, security, schema, or API contracts change. Never hide unfinished work behind a finished-looking UI.
 - Never commit `.env`, credentials, secrets, or real personal data. New environment variables require validation and an `.env.example` entry.
@@ -159,4 +162,10 @@ API and web are independent projects with independent lockfiles. Run commands in
 - `docs/architecture.md`: current system and proposed two-sided architecture.
 - `docs/api-contract.md`: shared request/response contract; update deliberately and keep web types aligned when implementation lands.
 - `docs/team-ownership.md`: four developer ownership boundaries and integration points.
-- `docs/two-sided-plan.md`: implementation order, proposed schema details, and risks.
+- `docs/two-sided-plan.md`: implementation order, deployment notes, proposed schema details, and risks.
+
+## 10. Git and team workflow
+
+- `main` is protected: a PR is required, CI must be green, and agents must not push directly to `main` or bypass branch protection.
+- Schema and migration work comes from Developer 3 and merges first. Other developers do not edit `api/prisma/migrations/**`.
+- Commit `pnpm-lock.yaml` with any `package.json` change; CI installs with `--frozen-lockfile`.

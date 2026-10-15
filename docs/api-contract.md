@@ -16,6 +16,7 @@
 - Validation uses the Nest global ValidationPipe({ whitelist: true, transform: true }).
 - There are no photo/logo/image fields or upload endpoints. Candidate cards and company records are text-first.
 - There is no direct candidate-recruiter messaging endpoint. MATCHBACK Bot is the only chat experience.
+- The NestJS backend is the only component that calls Google Gemini. The Gemini API key is server-side only and must never be exposed in frontend code. Compatibility scores are calculated deterministically; Gemini only explains known score inputs and provides recommendations.
 
 ## Shared schemas
 
@@ -536,7 +537,7 @@ Validation and cost controls:
 - Combined message content is at most 20,000 characters; larger requests return 400 ASSISTANT_INPUT_TOO_LARGE.
 - Roles are only user and assistant.
 - jobId is optional but, when present, must identify an accessible job.
-- The server sends only the minimum safe profile/job context, makes one model call per request, uses the configured AI_MODEL, caps generated output at 1,200 tokens, and applies the AI throttle. The client cannot choose a model or token budget.
+- The server sends only the minimum safe profile/job context, makes one Gemini model call per request, caps generated output at 1,200 tokens, and applies the AI throttle. The client cannot choose a model or token budget.
 - Conversation history is not persisted. The server does not expose the API key, user id, email, or private recruiter data to the prompt.
 
 Response:
@@ -547,7 +548,7 @@ Response:
 
 The response is `AssistantResponse`; `source` is `fallback` when the deterministic fallback was used.
 
-The Bot can explain fit, requirements, unconfirmed information, resume improvements, interview questions, and career guidance. It must not invent facts, claim hiring odds, expose pre-match contact data, or call official U-Bot. Missing key, timeout, API error, refusal, or invalid output returns a deterministic context-based reply with source: "fallback" and does not fail the page.
+The Bot can explain fit, requirements, unconfirmed information, resume improvements, interview questions, and career guidance. It must validate generated claims against the known profile/job context; it must not invent facts, claim hiring odds, expose pre-match contact data, or present a score as a mutual match. U-Bot is not used in MATCHBACK. Missing key, timeout, API error, refusal, or invalid output returns a deterministic context-based reply with source: "fallback" and does not fail the page.
 
 ## Job visibility and demo data
 

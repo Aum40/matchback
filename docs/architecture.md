@@ -29,7 +29,7 @@ NestJS REST API
   v
 PostgreSQL through Prisma 7
   |
-  +--> AiService --> Claude API (optional; server-side only)
+  +--> AiService --> Google Gemini API (planned; server-side only)
                   \-> deterministic fallback on missing key/failure
 ```
 
@@ -45,7 +45,7 @@ The browser never calls the API directly. CORS is intentionally off because the 
 | `matching` | Deterministic job fit and explicit-action AI explanation |
 | `resume` | Explicit-action Resume Coach request |
 | `applications` | Candidate-owned saved jobs and self-reported status/notes |
-| `infrastructure/ai` | Claude client, structured-output validation, prompt rules, deterministic fallback |
+| `infrastructure/ai` | Gemini client boundary, structured-output validation, prompt rules, deterministic fallback |
 
 ### Implemented web routes
 
@@ -171,9 +171,9 @@ AI may explain the deterministic result and provide evidence-based recommendatio
 
 ## AI and MATCHBACK Bot architecture
 
-### Implemented AI path
+### AI path (target provider; implementation pending)
 
-`MatchingService` builds a `MatchContext` containing job facts, candidate facts without identity fields, and the already-calculated match. `AiService` sends that context to Claude only after an explicit explanation or Resume Coach action. Structured output is validated with zod. Missing keys, timeouts, errors, refusals, and unparsable output use `ai.fallback.ts` with `source: "fallback"`.
+`MatchingService` builds a `MatchContext` containing job facts, candidate facts without identity fields, and the already-calculated deterministic match. The NestJS `AiService` will send that context to Google Gemini only after an explicit explanation or Resume Coach action. Structured output is validated against the known profile/job facts with zod. Missing keys, timeouts, errors, refusals, and unparsable or unsupported output use `ai.fallback.ts` with `source: "fallback"`.
 
 The prompt rules prohibit invented candidate facts, re-scoring, and hiring promises. AI responses are suggestions and explanations, not authoritative decisions.
 
@@ -188,10 +188,10 @@ Web Bot panel
   -> validate <=20-message history and optional jobId
   -> build the same safe MatchContext when jobId exists
   -> AiService Bot task + rules prompt
-  -> Claude structured/text response or deterministic fallback
+  -> Gemini structured/text response or deterministic fallback
 ```
 
-The server is stateless. The web sends the conversation history on every request. The request is limited to 20 messages, 2,000 characters per message, and 20,000 total characters. The endpoint is throttled, does not persist chat, and never becomes official U-Bot integration. The service caps generated output, avoids sending duplicate context, and uses the deterministic fallback without failing the page when AI is unavailable.
+The server is stateless. The web sends the conversation history on every request. The request is limited to 20 messages, 2,000 characters per message, and 20,000 total characters. The endpoint is throttled, does not persist chat, and sends the minimum safe context to Gemini. U-Bot is not used in MATCHBACK. The service caps generated output, validates claims against known facts, avoids sending duplicate context, and uses the deterministic fallback without failing the page when AI is unavailable. The provider change is documented here only; this merge does not implement application code.
 
 ## Known limitations
 

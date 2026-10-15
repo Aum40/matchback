@@ -36,7 +36,7 @@ The repository is being prepared for the U-Hackathon 2026 AI Track, with a deadl
 - Candidate and recruiter matches pages plus a backend-confirmed match celebration modal.
 - Candidate-facing MATCHBACK Bot: a contextual AI career assistant with a deterministic fallback.
 
-Planned features must remain labeled as planned until their API, UI, tests, and demo path are working. Official U-Bot integration is optional and blocked until official documentation, authorization, an endpoint, and credentials are verified. MATCHBACK Bot is not the official U-Bot.
+Planned features must remain labeled as planned until their API, UI, tests, and demo path are working. U-Bot is not used in this project. MATCHBACK Bot is a separate, candidate-only feature backed by Google Gemini through the NestJS API.
 
 ## User experiences
 
@@ -86,7 +86,7 @@ docs/two-sided-plan.md       Proposed schema, sequence, and risk notes
 - Node `>=24.15 <25` and pnpm `11.8.0`.
 - Web: Next.js `16.3.8`, React `19.2.4`, TypeScript, Tailwind CSS 4, and shadcn/Base UI.
 - API: NestJS `11.2.x`, Prisma `7.9.x`, PostgreSQL, REST, and class-validator DTOs.
-- AI: `@anthropic-ai/sdk` behind the API's `AiService`; no API key is exposed to the web.
+- AI: Google Gemini API behind the API's `AiService`; compatibility scoring remains deterministic and no API key is exposed to the web.
 
 Use `nvm use` before installing. API and web are independent projects with their own lockfiles; run commands inside the relevant directory. Always use pnpm.
 
@@ -105,7 +105,7 @@ pnpm start:dev
 
 The API runs at `http://localhost:8000`; health is `GET /health`.
 
-Required local configuration includes `DATABASE_URL`, `ACCESS_TOKEN_SECRET`, and `SEED_DEMO_PASSWORD`. `ANTHROPIC_API_KEY` is optional; without it, explanations and Resume Coach use rule-based fallback output. Google and mail configuration are optional according to `api/.env.example`.
+Required local configuration includes `DATABASE_URL`, `ACCESS_TOKEN_SECRET`, and `SEED_DEMO_PASSWORD`. The finalized AI strategy reserves an optional server-side `GEMINI_API_KEY`; without a working Gemini response, explanations, Resume Coach, and MATCHBACK Bot use deterministic fallback output. This documentation-only merge does not add or change environment files. Google and mail configuration are optional according to `api/.env.example`.
 
 ### Web
 

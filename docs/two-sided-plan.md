@@ -27,6 +27,14 @@ Not present yet:
 - Candidate/recruiter matches pages and match celebration modal.
 - Candidate-facing MATCHBACK Bot; recruiter Bot access is out of scope for the MVP.
 
+### Final AI strategy
+
+- U-Bot is not used in MATCHBACK. The candidate-only MATCHBACK Bot is a separate feature.
+- The NestJS API calls Google Gemini for match explanations, skill-gap recommendations, Resume Coach, and MATCHBACK Bot responses. Gemini API keys are server-side environment variables only; frontend code never receives them.
+- Compatibility is calculated deterministically from known profile and job data on a 0-100 scale. Gemini explains that result and recommends improvements; it does not score, re-score, estimate hiring probability, or create a mutual match.
+- Gemini output is validated against known candidate and job facts. It must not invent skills, experience, qualifications, achievements, employers, or numbers. Missing information remains unconfirmed, not a confirmed skill gap. Use `MENTIONED_IN_PROFILE` and `NO_SKILLS_LISTED` for the explicit unconfirmed reason codes.
+- Gemini calls happen only after explicit user action. The Bot accepts at most 20 messages, 2,000 characters per message, and 20,000 total characters, with a 1,200-token output cap, one model call per request, throttling, no persistence, and deterministic fallback responses when Gemini fails.
+
 ## 2. Proposed database changes: Developer 3 only
 
 The current Prisma schema is unchanged on this documentation branch. The following are proposed and require a migration. No other developer creates or edits migrations.
@@ -124,7 +132,7 @@ Schema mapping:
 - Recruiter without a company receives 409 COMPANY_REQUIRED for job routes.
 - GET /users/me is the recruiter identity endpoint. There is no separate recruiter profile model.
 - CandidateCard exposes first name, profile text, listed skills, and deterministic fit only. It has no photo, logo, email, surname/full name, or candidate LIKE/SKIP decision.
-- There is no direct human chat, unmatching, blocking, team management, job scraping, real job feed, payments, resume PDF parsing, or official U-Bot integration.
+- There is no direct human chat, unmatching, blocking, team management, job scraping, real job feed, payments, resume PDF parsing, or U-Bot usage. MATCHBACK Bot is the separate candidate-only assistant.
 
 ## 4. Mutual-match sequence and retries
 
@@ -170,7 +178,40 @@ See [docs/team-ownership.md](team-ownership.md). It is the only ownership source
 2. Recruiter signs in, opens a PUBLISHED owned job, and LIKEs the same candidate for job-001.
 3. The API returns matchCreated true, isMatched true, and matchId. Both sides can open the mutual match.
 4. Retry the same swipe to demonstrate idempotency: matchCreated is false, isMatched remains true, and the same matchId is returned.
-5. Ask MATCHBACK Bot for evidence-based interview preparation. If AI is unavailable, show the deterministic fallback.
+5. Ask MATCHBACK Bot for evidence-based interview preparation. Gemini is called only by the NestJS backend; if it is unavailable or produces invalid output, show the deterministic fallback.
+
+## Deployment and submission (required by the official participant guide)
+
+Judges must be able to open a **deployed demo website** and use the real product. A localhost demo does not count. **Deploy the current `main` today** so hosting problems show up early, then let every merge redeploy.
+
+| Piece | Suggested host | Owner | Notes |
+|---|---|---|---|
+| Postgres | Neon (free) | Dev 3 | `DATABASE_URL` for the API. The deploy runs `pnpm prisma migrate deploy && pnpm db:seed`. |
+| API | Render or Railway (Root Directory `api`) | Dev 3 | Build: `pnpm install --frozen-lockfile && pnpm build`. Start: `pnpm prisma migrate deploy && pnpm start:prod`. See the API settings below. |
+| Web | Vercel (Root Directory `web`) | Dev 1 | Set the Node version to 24 in project settings. See the web env vars below. |
+| Pitch deck | Google Drive | whole team | Sharing: *Anyone with the link can view* |
+| Hub registration | hub.team1.network | team lead | **Register on 15 Oct, as early as possible.** You can't submit until the organisers approve. Everyone's profile needs their full English name. |
+
+**API host settings:**
+- Set `NODE_VERSION=24.20.0` (the engines check rejects older versions).
+- `NODE_ENV=production` **requires** `BREVO_API_KEY` + `MAIL_FROM`. Get a free Brevo key and verified sender early, or the API won't boot.
+- Also set `FRONTEND_URL`, `ACCESS_TOKEN_SECRET`, `TRUST_PROXY`, `INTERNAL_API_SECRET`, the server-side `GEMINI_API_KEY`, and the `SEED_*` demo passwords. Never expose `GEMINI_API_KEY` to frontend code.
+
+**Web env vars:** `API_URL` (the API's public URL), `AUTH_SECRET`, `AUTH_URL` (the Vercel URL — login silently fails without it), `INTERNAL_API_SECRET` (same value as the API).
+
+**Judge access (must-have, Dev 1):** add "Try as candidate" / "Try as recruiter" buttons on `/login`.
+- They sign in with the seeded demo accounts. The credentials come from **server-side web env vars**; never hardcode them in the repo or ship them to the browser.
+- The demo accounts only hold demo data, and `pnpm db:seed` resets them. Fallback if there's no time: put the demo logins in the submission description.
+
+**Submission checklist** (from the guide):
+- [ ] Profiles show full names in English; registration approved (the Submit button is visible)
+- [ ] Name, short description (≤ 280 chars, lead with the problem), full description
+- [ ] Public repo link
+- [ ] Demo website + deck links tested in a private window
+- [ ] Screenshots
+- [ ] Tech stack lists the partner tools **actually used**
+- [ ] "Pre-existing idea or codebase" **ticked** (we started from a starter template)
+- [ ] **Submit early (a first version on the 16th morning), then re-submit** after each change before 14:00. Judges see only the submitted version.
 
 ## 8. Must not break
 
@@ -195,6 +236,8 @@ See [docs/team-ownership.md](team-ownership.md). It is the only ownership source
 | Demo data mistaken for vacancies | Seeded records always carry isDemo and Demo data UI copy; no real feed |
 | Desktop implementation breaks smaller screens | Desktop-first layout is tested at desktop, tablet, and mobile breakpoints |
 | Scope exceeds deadline | Ship the candidate path and one recruiter/mutual-match happy path before optional polish |
+| Node >= 24.15 is required by engineStrict | Everyone runs the pinned Node version before installing |
+| Deployment or submission links fail near the deadline | Deploy early, test all links in a private window, and resubmit after changes |
 
 ## 10. Verification gate
 
