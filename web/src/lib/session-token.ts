@@ -84,6 +84,25 @@ export async function refreshSession(
   }
 }
 
+/**
+ * ถอดรหัสคุกกี้ session ของ next-auth คืน null ถ้าถอดไม่ได้
+ *
+ * decode() โยน error เมื่อคุกกี้ถูกเข้ารหัสด้วย secret อื่น (คุกกี้ค้างจากแอปอื่นบน localhost
+ * หรือหลังเปลี่ยน AUTH_SECRET) หรือคุกกี้เสีย/หมดอายุ ถ้าปล่อยหลุดออกไปจาก proxy
+ * ทุกคำขอจะได้ 500 รวมถึง /login ผู้ใช้เลยล็อกอินใหม่ไม่ได้เลย
+ * ครอบเฉพาะ decode เพราะ input เดียวที่ทำให้มันพังได้คือตัวคุกกี้ error อื่นยังโยนตามปกติ
+ */
+export async function decodeSessionCookie(
+  name: string,
+  value: string,
+): Promise<JWT | null> {
+  try {
+    return await decode({ token: value, secret: env.AUTH_SECRET, salt: name });
+  } catch {
+    return null;
+  }
+}
+
 /** อ่าน JWT ของ next-auth จากคุกกี้ (ใช้ใน server action / route handler) */
 export async function readSessionToken(): Promise<JWT | null> {
   const store = await cookies();
@@ -91,7 +110,7 @@ export async function readSessionToken(): Promise<JWT | null> {
   const value = name && store.get(name)?.value;
   if (!name || !value) return null;
 
-  return decode({ token: value, secret: env.AUTH_SECRET, salt: name });
+  return decodeSessionCookie(name, value);
 }
 
 /**

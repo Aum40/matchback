@@ -91,4 +91,50 @@ describe("proxy (refresh token rotation)", () => {
 
     expect(response.headers.get("set-cookie")).toBeNull();
   });
+
+  describe("a session cookie that can't be decrypted", () => {
+    // คุกกี้จากแอปอื่นบน localhost หรือหลังเปลี่ยน AUTH_SECRET ต้องไม่ทำให้ทุกหน้า 500
+    async function foreignCookie() {
+      return encode({
+        token: session(nowSeconds() + 600),
+        secret: "another-apps-secret",
+        salt: COOKIE,
+      });
+    }
+
+    it.each([
+      ["encrypted with another secret", foreignCookie],
+      ["plain garbage", () => Promise.resolve("not-a-jwe")],
+    ])("is treated as signed out when %s", async (_, makeValue) => {
+      const request = new NextRequest("http://localhost:3000/login", {
+        headers: { cookie: `${COOKIE}=${await makeValue()}` },
+      });
+
+      const response = await proxy(request);
+
+      // ปล่อยคำขอผ่าน (ไม่ใช่ redirect / 500) และไม่ไปขอ token ใหม่
+      expect(response.headers.get("x-middleware-next")).toBe("1");
+      expect(refreshSession).not.toHaveBeenCalled();
+      // เบราว์เซอร์ถูกสั่งลบคุกกี้ และหน้าที่ render รอบนี้ก็ไม่เห็นคุกกี้นั้นแล้ว
+      expect(response.cookies.get(COOKIE)?.value).toBe("");
+      const forwarded =
+        response.headers.get("x-middleware-request-cookie") ?? "";
+      expect(forwarded).not.toContain(COOKIE);
+    });
+
+    it("also clears the chunks next-auth splits a large cookie into", async () => {
+      const request = new NextRequest("http://localhost:3000/", {
+        headers: {
+          cookie: `${COOKIE}=bad; ${COOKIE}.0=part; ${COOKIE}.1=part; theme=dark`,
+        },
+      });
+
+      const response = await proxy(request);
+
+      expect(response.cookies.get(COOKIE)?.value).toBe("");
+      expect(response.cookies.get(`${COOKIE}.0`)?.value).toBe("");
+      expect(response.cookies.get(`${COOKIE}.1`)?.value).toBe("");
+      expect(response.cookies.get("theme")).toBeUndefined();
+    });
+  });
 });

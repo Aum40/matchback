@@ -1,12 +1,13 @@
 import { clientIpFrom } from "@/lib/api/api-fetch";
 import { env } from "@/lib/env";
 import {
+  decodeSessionCookie,
   needsRefresh,
   refreshSession,
   SESSION_COOKIES,
   SESSION_MAX_AGE,
 } from "@/lib/session-token";
-import { decode, encode } from "next-auth/jwt";
+import { encode } from "next-auth/jwt";
 import { type NextRequest, NextResponse } from "next/server";
 
 /**
@@ -24,26 +25,17 @@ export async function proxy(request: NextRequest) {
   const value = name && request.cookies.get(name)?.value;
   if (!name || !value) return NextResponse.next();
 
-  const token = await decode({
-    token: value,
-    secret: env.AUTH_SECRET,
-    salt: name,
-  });
-  if (!token || !needsRefresh(token)) return NextResponse.next();
+  const token = await decodeSessionCookie(name, value);
+  // ถอดไม่ได้ = ไม่มี session: ลบคุกกี้เสียทิ้ง ไม่งั้นทุกคำขอจะเจอคุกกี้เดิมซ้ำไปเรื่อย ๆ
+  if (!token) return clearSession(request);
+  if (!needsRefresh(token)) return NextResponse.next();
 
   // proxy อ่าน header ด้วย next/headers ไม่ได้ ส่ง IP ของผู้ใช้ให้ API เอง (rate limit)
   const refreshed = await refreshSession(token, clientIpFrom(request.headers));
   if (refreshed === token) return NextResponse.next(); // API ต่อไม่ติด ลองใหม่คำขอหน้า
 
-  if (!refreshed) {
-    // refresh token ใช้ไม่ได้แล้ว: ลบ session หน้าที่ต้องล็อกอินจะพาไปหน้า login เอง
-    request.cookies.delete(name);
-    const response = NextResponse.next({
-      request: { headers: request.headers },
-    });
-    response.cookies.delete(name);
-    return response;
-  }
+  // refresh token ใช้ไม่ได้แล้ว
+  if (!refreshed) return clearSession(request);
 
   const updated = await encode({
     token: refreshed,
@@ -61,6 +53,26 @@ export async function proxy(request: NextRequest) {
     secure: name.startsWith("__Secure-"),
     maxAge: SESSION_MAX_AGE,
   });
+  return response;
+}
+
+/**
+ * ลบคุกกี้ session ทั้งในคำขอและคำตอบ หน้าที่ต้องล็อกอินจะเห็นว่าไม่มี session แล้วพาไปหน้า login เอง
+ * ลบทุกชื่อรวมถึงคุกกี้ที่ next-auth แบ่งเป็นชิ้น (.0, .1, ...) ตอน token ใหญ่เกิน
+ */
+function clearSession(request: NextRequest) {
+  const names = request.cookies
+    .getAll()
+    .map((cookie) => cookie.name)
+    .filter((cookie) =>
+      SESSION_COOKIES.some(
+        (session) => cookie === session || cookie.startsWith(`${session}.`),
+      ),
+    );
+
+  for (const name of names) request.cookies.delete(name);
+  const response = NextResponse.next({ request: { headers: request.headers } });
+  for (const name of names) response.cookies.delete(name);
   return response;
 }
 
