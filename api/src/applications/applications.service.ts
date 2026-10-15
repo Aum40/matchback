@@ -1,7 +1,7 @@
 import { UpdateApplicationDto } from '@/applications/dto/update-application.dto';
 import { ApplicationStatus } from '@/database/generated/prisma/enums';
 import { PrismaService } from '@/database/prisma.service';
-import { JOB_SELECT, toJobResponse } from '@/jobs/jobs.service';
+import { JOB_SELECT, toJobResponse } from '@/jobs/job.select';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 const APPLICATION_SELECT = {

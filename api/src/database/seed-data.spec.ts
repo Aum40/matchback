@@ -81,7 +81,7 @@ describe('seed data', () => {
 
   // seed จับคู่งานกับบริษัทด้วยชื่อ: ชื่อไม่ตรงตัวเดียว = งานไม่มีเจ้าของ recruiter จัดการไม่ได้
   it('gives every demo job a demo company by exact name', () => {
-    const names = new Set(COMPANIES.map((company) => company.name));
+    const names = new Set<string>(COMPANIES.map((company) => company.name));
     expect(JOBS.every((job) => names.has(job.company))).toBe(true);
     expect(COMPANIES.every((company) => company.name.endsWith('(demo)'))).toBe(
       true,

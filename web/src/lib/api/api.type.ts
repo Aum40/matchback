@@ -128,3 +128,67 @@ export type Application = {
   updatedAt: string;
   job: Job;
 };
+
+// ---------------------------------------------------------------------------
+// Two-sided: recruiter, mutual match — ต้องตรงกับ docs/api-contract.md
+// (api/src/recruiter, api/src/companies, api/src/matches) เจ้าของไฟล์นี้คือ Developer 3
+// ---------------------------------------------------------------------------
+
+/** คะแนนแบบ deterministic ของการ์ด (ทั้ง DiscoverJob ฝั่งผู้สมัคร และ CandidateCard ฝั่ง recruiter) */
+export type MatchSummary = DiscoverJob["match"];
+
+export type Company = {
+  id: string;
+  name: string;
+  description: string | null;
+  website: string | null;
+  /** true = บริษัทสมมติจาก seed ต้องแสดงป้าย Demo data */
+  isDemo: boolean;
+};
+
+export type RecruiterJob = Job & {
+  status: JobStatus;
+  companyId: string;
+  /** จำนวนผู้สมัครที่ฝั่งบริษัท LIKE ไปแล้ว (ไม่ใช่จำนวนผู้สมัครที่ LIKE งาน) */
+  likeCount: number;
+  matchCount: number;
+};
+
+/** ข้อมูลผู้สมัครที่ recruiter เห็นก่อน match: ชื่อต้นเท่านั้น ไม่มีอีเมล/นามสกุล/การตัดสินใจของผู้สมัคร */
+export type CandidateCard = {
+  candidateId: string;
+  displayName: string;
+  headline: string | null;
+  education: string | null;
+  experience: string | null;
+  projects: string | null;
+  skills: { id: string; name: string }[];
+  match: MatchSummary;
+};
+
+/** match ที่ทั้งสองฝั่ง LIKE แล้ว — ข้อมูลติดต่อมีให้เฉพาะตรงนี้ */
+export type MutualMatch = {
+  id: string;
+  createdAt: string;
+  job: Job;
+  candidate: {
+    candidateId: string;
+    name: string;
+    email: string;
+    headline: string | null;
+  };
+};
+
+/**
+ * ผลของการปัดทั้งสองฝั่ง: ฉลอง "It's a Match!" เฉพาะ matchCreated === true
+ * isMatched โดยไม่มี matchCreated = retry หรือ match เดิม → แค่เปิด/รีเฟรช match ไม่ฉลองซ้ำ
+ */
+export type SwipeResult = {
+  jobId: string;
+  direction: SwipeDirection;
+  matchCreated: boolean;
+  isMatched: boolean;
+  matchId: string | null;
+  /** ฝั่งผู้สมัคร LIKE = รายการ INTERESTED; ฝั่ง recruiter เป็น null เสมอ */
+  application: { id: string; status: ApplicationStatus } | null;
+};

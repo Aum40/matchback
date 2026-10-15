@@ -1,6 +1,7 @@
 import { UpdateProfileDto } from '@/candidates/dto/update-profile.dto';
 import { PrismaService } from '@/database/prisma.service';
 import type { CandidateFacts } from '@/infrastructure/ai/ai.types';
+import type { WorkArrangement } from '@/database/generated/prisma/enums';
 import type { MatchCandidate } from '@/matching/match-score';
 import { BadRequestException, Injectable } from '@nestjs/common';
 
@@ -14,6 +15,33 @@ const PROFILE_SELECT = {
   preferredWorkArrangement: true,
   updatedAt: true,
 } as const;
+
+/**
+ * แปลงโปรไฟล์เป็น input ของ calculateMatch() — ที่เดียวที่กำหนดว่าคะแนนอ่านอะไรจากโปรไฟล์
+ * ใช้ทั้งฝั่งผู้สมัคร (getMatchInputs) และ deck ของ recruiter (ผู้สมัครหลายคนพร้อมกัน)
+ * สองฝั่งจึงได้คะแนนเท่ากันเสมอสำหรับคู่ผู้สมัคร/งานเดียวกัน
+ */
+export function buildMatchCandidate(
+  profile: {
+    experience: string | null;
+    projects: string | null;
+    education: string | null;
+    desiredRoles: string[];
+    preferredSalaryMin: number | null;
+    preferredWorkArrangement: WorkArrangement | null;
+  } | null,
+  skillIds: string[],
+): MatchCandidate {
+  return {
+    skillIds,
+    profileText: [profile?.experience, profile?.projects, profile?.education]
+      .filter(Boolean)
+      .join('\n'),
+    desiredRoles: profile?.desiredRoles ?? [],
+    preferredSalaryMin: profile?.preferredSalaryMin ?? null,
+    preferredWorkArrangement: profile?.preferredWorkArrangement ?? null,
+  };
+}
 
 @Injectable()
 export class CandidatesService {
@@ -97,15 +125,10 @@ export class CandidatesService {
     const profile = await this.getProfile(userId);
 
     return {
-      candidate: {
-        skillIds: profile.skills.map((skill) => skill.id),
-        profileText: [profile.experience, profile.projects, profile.education]
-          .filter(Boolean)
-          .join('\n'),
-        desiredRoles: profile.desiredRoles,
-        preferredSalaryMin: profile.preferredSalaryMin,
-        preferredWorkArrangement: profile.preferredWorkArrangement,
-      },
+      candidate: buildMatchCandidate(
+        profile,
+        profile.skills.map((skill) => skill.id),
+      ),
       facts: {
         headline: profile.headline,
         education: profile.education,

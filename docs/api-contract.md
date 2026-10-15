@@ -6,7 +6,7 @@
 
 - The base URL is the server-only API_URL; the browser never calls the API directly.
 - Every endpoint requires Authorization: Bearer <accessToken> unless marked public.
-- USER is the existing candidate role. RECRUITER is IMPLEMENTED (schema, sign-up and guards); recruiter endpoints are still proposed. ADMIN is reserved for administration and cannot be selected at sign-up.
+- USER is the existing candidate role. RECRUITER is IMPLEMENTED (schema, sign-up, guards and recruiter endpoints). ADMIN is reserved for administration and cannot be selected at sign-up.
 - Candidate controllers apply @Roles(Role.USER) (IMPLEMENTED): a RECRUITER or ADMIN token gets 403 on candidate routes.
 - Errors use { statusCode: number, message: string, code?: string }. Clients branch on stable code, never message text. Existing paths without a code must be normalized when they are next touched.
 - A resource owned by another user/company returns 404. A valid token with the wrong role returns 403.
@@ -29,7 +29,7 @@ type WorkArrangement = "ONSITE" | "HYBRID" | "REMOTE";
 type EmploymentType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP";
 type SwipeDirection = "LIKE" | "SKIP";
 type ApplicationStatus = "INTERESTED" | "APPLIED" | "INTERVIEWING" | "REJECTED" | "OFFER";
-type JobStatus = "DRAFT" | "PUBLISHED" | "CLOSED"; // IMPLEMENTED in the schema; recruiter management routes PROPOSED
+type JobStatus = "DRAFT" | "PUBLISHED" | "CLOSED"; // IMPLEMENTED
 type AiSource = "ai" | "fallback";
 ~~~
 
@@ -60,9 +60,8 @@ type Job = {
   description: string;
   isDemo: boolean;
   skills: JobSkill[];
-  // PROPOSED managed-job fields; absent from current main responses:
-  // companyId?: string | null;
-  // status?: JobStatus;
+  // companyId and status are NOT part of the public/candidate Job shape.
+  // They are returned only by recruiter routes, as RecruiterJob.
 };
 
 type PublicUser = {
@@ -174,7 +173,7 @@ type Company = {
 type RecruiterJob = Job & {
   companyId: string;
   status: JobStatus;
-  likeCount: number;
+  likeCount: number; // candidates the COMPANY side has LIKEd for this job — never the candidates' own likes
   matchCount: number;
 };
 
@@ -329,7 +328,7 @@ Validation: text max lengths are headline 150, education 2000, experience/projec
 
 Returns DiscoverJob[] for jobs not yet swiped by the authenticated user, sorted by deterministic score. Requires USER and returns only status = PUBLISHED jobs.
 
-### POST /jobs/:jobId/swipe - IMPLEMENTED today; mutual fields PROPOSED
+### POST /jobs/:jobId/swipe - IMPLEMENTED, including mutual fields
 
 Request (direction is required and must be `LIKE` or `SKIP`):
 
@@ -347,7 +346,7 @@ Current response:
 }
 ~~~
 
-SKIP returns application: null. A LIKE upserts JobInteraction and creates/preserves an INTERESTED application; it never submits an external application. The proposed response adds matchCreated, isMatched, and matchId as SwipeResult.
+SKIP returns application: null. A LIKE upserts JobInteraction and creates/preserves an INTERESTED application; it never submits an external application. The response is SwipeResult: it also carries matchCreated, isMatched and matchId (IMPLEMENTED).
 
 ### DELETE /jobs/swipes - IMPLEMENTED, USER only
 
@@ -425,15 +424,15 @@ Deleted users are excluded. Wrong roles return 403.
 
 Request { "status": "SUSPENDED" } or { "status": "ACTIVE" }. The id must be a UUID. Admins cannot change their own status (400); unknown users return 404. Suspending a user revokes all refresh tokens and future requests return ACCOUNT_SUSPENDED.
 
-## Recruiter identity, company, and jobs - PROPOSED
+## Recruiter identity, company, and jobs - IMPLEMENTED
 
 Recruiter identity is GET /users/me. The MVP has no separate recruiter profile model. Company information is managed through the following endpoints, and the caller's company relation is loaded from the database rather than accepted from request JSON.
 
-### GET /companies/me - PROPOSED
+### GET /companies/me - IMPLEMENTED
 
 Role RECRUITER. Returns `Company | null`.
 
-### PUT /companies/me - PROPOSED
+### PUT /companies/me - IMPLEMENTED
 
 Role RECRUITER. Creates the caller's one company on first call or updates it thereafter.
 
@@ -443,11 +442,11 @@ Role RECRUITER. Creates the caller's one company on first call or updates it the
 
 Returns `Company`. Name is required, trimmed, and max 150 characters; description is optional, trimmed, and max 4,000 characters; website is optional, trimmed, and max 2,048 characters with a valid `http` or `https` URL. No logo/image field exists. A recruiter may belong to only one company in the MVP. Unknown fields are rejected by the whitelist validation pipe.
 
-### GET /recruiter/jobs - PROPOSED
+### GET /recruiter/jobs - IMPLEMENTED
 
 Role RECRUITER. Requires a company; otherwise 409 COMPANY_REQUIRED. Returns `RecruiterJob[]` for the caller's company in any status, with `status`, `companyId`, `likeCount`, and `matchCount`.
 
-### POST /recruiter/jobs - PROPOSED
+### POST /recruiter/jobs - IMPLEMENTED
 
 Role RECRUITER; requires a company. A new job starts as DRAFT.
 
@@ -467,37 +466,41 @@ Role RECRUITER; requires a company. A new job starts as DRAFT.
 }
 ~~~
 
-Returns the created `RecruiterJob`. Validate trimmed title and location (max 150 characters each), description (max 4,000 characters), enum values, non-negative integer salaries with salaryMin <= salaryMax, and 1-15 unique existing skills. Unknown ids return 400 UNKNOWN_SKILL. The API sets companyId, display company, isDemo: false, and status: DRAFT; clients cannot submit those authority fields.
+Returns the created `RecruiterJob` (201). Validate trimmed title and location (max 150 characters each), description (max 4,000 characters), enum values, non-negative integer salaries with salaryMin <= salaryMax (otherwise 400 INVALID_SALARY_RANGE), and 1-15 unique existing skills. Unknown ids return 400 UNKNOWN_SKILL; a repeated id returns 400 DUPLICATE_SKILL. The API sets companyId, display company, isDemo: false, and status: DRAFT; clients cannot submit those authority fields.
 
-### PATCH /recruiter/jobs/:jobId - PROPOSED
+### PATCH /recruiter/jobs/:jobId - IMPLEMENTED
 
-Role RECRUITER. Accepts a partial create payload plus optional status: DRAFT | PUBLISHED | CLOSED, and returns the updated `RecruiterJob`. The job must belong to the caller's company; otherwise return 404 JOB_NOT_FOUND. Recruiters can manage draft, published, and closed jobs. Only published jobs enter candidate discovery/public browsing.
+Role RECRUITER. Accepts a partial create payload plus optional status: DRAFT | PUBLISHED | CLOSED, and returns the updated `RecruiterJob`. Sending `skills` replaces the whole skill list. The salary check uses the merged old/new values. The job must belong to the caller's company; otherwise return 404 JOB_NOT_FOUND. Recruiters can manage draft, published, and closed jobs. Only published jobs enter candidate discovery/public browsing.
 
-## Recruiter candidate deck and swipes - PROPOSED
+## Recruiter candidate deck and swipes - IMPLEMENTED
 
-### GET /recruiter/jobs/:jobId/candidates - PROPOSED
+### GET /recruiter/jobs/:jobId/candidates - IMPLEMENTED
 
 Role RECRUITER. The job must belong to the caller's company and have `status = PUBLISHED`; otherwise return `409 JOB_NOT_PUBLISHED`. The endpoint returns `CandidateCard[]` with at least one listed skill and no existing CandidateInteraction for this job, ordered by deterministic score. It never reveals the candidate's JobInteraction and has no photo fields. Draft and closed jobs remain manageable through recruiter job-management endpoints, but they cannot open a candidate deck or accept recruiter swipes.
 
-### POST /recruiter/jobs/:jobId/candidates/:candidateId/swipe - PROPOSED
+### POST /recruiter/jobs/:jobId/candidates/:candidateId/swipe - IMPLEMENTED
 
 Role RECRUITER. The job must belong to the caller's company and have `status = PUBLISHED`; otherwise return `409 JOB_NOT_PUBLISHED`. Request { "direction": "LIKE" | "SKIP" }. The API verifies job ownership, candidate existence, candidate role, and candidate privacy rules, then upserts one CandidateInteraction for (jobId, candidateId). It returns SwipeResult. There is no client-created match endpoint.
 
 Errors: 400 validation; 403 wrong role; 404 JOB_NOT_FOUND for an unauthorized job and CANDIDATE_NOT_FOUND for an unavailable candidate; 409 JOB_NOT_PUBLISHED for a draft or closed job.
 
-## Mutual matches - PROPOSED
+## Mutual matches - IMPLEMENTED
 
-### GET /matches - PROPOSED
+### GET /matches - IMPLEMENTED
 
 Role USER or RECRUITER. Returns `MutualMatch[]`. Candidates receive their own matches. Recruiters receive matches for jobs owned by their company. Contact details are returned only because the match is already confirmed.
 
-### GET /matches/:id - PROPOSED
+### GET /matches/:id - IMPLEMENTED
 
-Role USER or RECRUITER. Returns `MutualMatch` only when the caller is the candidate or an authorized recruiter for the job's company; otherwise 404.
+Role USER or RECRUITER. Returns `MutualMatch` only when the caller is the candidate or an authorized recruiter for the job's company; otherwise 404 MATCH_NOT_FOUND. A recruiter without a company gets an empty list from GET /matches.
+
+### GET /recruiter/jobs/:jobId/matches - IMPLEMENTED
+
+Role RECRUITER. `MutualMatch[]` for one of the caller's company jobs (any status); another company's job returns 404 JOB_NOT_FOUND.
 
 There is no POST, PATCH, DELETE, unmatch, or block endpoint. Matches are created only by the two swipe services and have a database uniqueness constraint on (candidateId, jobId).
 
-## Mutual-match retry and idempotency rules - PROPOSED
+## Mutual-match retry and idempotency rules - IMPLEMENTED
 
 After the current swipe is committed, the service reads the other side. If both sides LIKE, it calls createMany({ skipDuplicates: true }) and uses the inserted-row count to set matchCreated:
 
