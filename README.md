@@ -4,9 +4,11 @@
 
 MATCHBACK is a two-sided, AI-assisted Tinder for Jobs. Candidates swipe on jobs; recruiters choose a specific company job and swipe on candidate cards. A real mutual match exists only when both sides LIKE the same candidate/job pair.
 
-The compatibility score is deterministic and explainable profile fit. It is not a hiring probability, a promise of an employer response, or a mutual match. Candidate likes do not submit job applications.
+The compatibility score is deterministic and explainable profile fit. AI explains the score and suggests improvements but never calculates or changes it. It is not a hiring probability, a promise of an employer response, or a mutual match. Candidate likes do not submit job applications.
 
 All seeded jobs and companies are fictional demo data. The web labels them `Demo data`.
+
+The UI is desktop-first and fully responsive. Tablet and mobile layouts remain usable. Swipe cards are text-first: MATCHBACK does not support candidate profile photos, company logos, image uploads, or image-based matching. Mouse dragging, touch swiping, Like/Pass buttons, and keyboard alternatives are supported.
 
 ## Product status
 
@@ -57,6 +59,16 @@ Planned features must remain labeled as planned until their API, UI, tests, and 
 6. See mutual matches for the recruiter's own jobs. Email and full name are revealed only after a mutual match.
 
 Human-to-human candidate/recruiter chat is out of scope. The MATCHBACK Bot is the only chat experience.
+
+### Job visibility
+
+The current `main` schema has no publication-state field, so its seeded demo jobs are treated as visible sample jobs. The proposed recruiter model adds `status: DRAFT | PUBLISHED | CLOSED`:
+
+- Recruiter-created jobs start as `DRAFT` and are not shown to candidates.
+- Only `PUBLISHED` jobs appear in candidate discovery and public job browsing.
+- `CLOSED` jobs are hidden from candidate discovery but remain manageable by their owning recruiter.
+- Existing seeded jobs are backfilled or treated as `PUBLISHED` for compatibility.
+- `isDemo` identifies fictional demo data; it does not control visibility. Seeded demo jobs must never be presented as real vacancies.
 
 ## Repository structure
 

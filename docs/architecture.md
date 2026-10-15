@@ -11,7 +11,7 @@ MATCHBACK has two actors and one shared pairing rule:
 - A mutual match for `(candidateId, jobId)` exists only when both sides LIKE that same pair.
 - A compatibility score is profile fit calculated by deterministic code; it is not a match and is never a hiring prediction.
 
-The demo uses fictional seeded jobs and companies. Candidate applications remain self-reported; a swipe or a mutual match does not submit an external application or imply an employer response.
+The demo uses fictional seeded jobs and companies. Candidate applications remain self-reported; a swipe or a mutual match does not submit an external application or imply an employer response. The UI is desktop-first and fully responsive, with usable tablet/mobile layouts. Cards are text-first and have no candidate photos, company logos, or image uploads.
 
 ## Current system on `main`
 
@@ -41,7 +41,7 @@ The browser never calls the API directly. CORS is intentionally off because the 
 |---|---|
 | `auth`, `users`, `admin` | Email/password and optional Google auth, access/refresh sessions, account guards, admin user management |
 | `candidates` | `GET/PUT /candidates/me` and profile/skill persistence |
-| `jobs` | Public job catalog, public job detail, candidate discovery, candidate job swipes, swipe reset |
+| `jobs` | Public job catalog, public job detail, public skills catalog, candidate discovery, candidate job swipes, swipe reset |
 | `matching` | Deterministic job fit and explicit-action AI explanation |
 | `resume` | Explicit-action Resume Coach request |
 | `applications` | Candidate-owned saved jobs and self-reported status/notes |
@@ -55,7 +55,7 @@ The browser never calls the API directly. CORS is intentionally off because the 
 
 1. The candidate signs in. The web stores session state in next-auth; the API issues a short-lived access token and rotating refresh token.
 2. `/discover` calls `GET /jobs/discover` through a Server Component. The API removes jobs already swiped by this user, computes the deterministic score for each remaining job, and sorts by score.
-3. `SwipeDeck` supports drag, LIKE/NOPE buttons, and left/right keyboard input. A Server Action calls `POST /jobs/:id/swipe` and optimistically removes the card.
+3. `SwipeDeck` supports desktop mouse dragging, touch swiping, LIKE/NOPE buttons, and left/right keyboard input. A Server Action calls `POST /jobs/:id/swipe` and optimistically removes the card.
 4. A candidate LIKE records `JobInteraction(LIKE)` and creates an `INTERESTED` application row if needed. It does not submit an application.
 5. Job detail calls `GET /jobs/:jobId/match` without invoking AI. The user may explicitly request an explanation or Resume Coach response.
 6. The candidate may update the tracker themselves. No employer system updates it.
@@ -65,7 +65,7 @@ The browser never calls the API directly. CORS is intentionally off because the 
 1. A recruiter registers or signs in with role `RECRUITER`.
 2. The recruiter creates or edits one company profile. The API stores the company relationship; the client never supplies an authority-bearing company id.
 3. The recruiter lists, creates, or edits only jobs where the database says `job.companyId === recruiter.companyId`.
-4. The recruiter selects one open job. `GET /recruiter/jobs/:jobId/candidates` returns privacy-safe `CandidateCard` records, excluding candidates already swiped for that job and never revealing the candidate's job interaction.
+4. The recruiter selects one `PUBLISHED` job. `GET /recruiter/jobs/:jobId/candidates` returns privacy-safe `CandidateCard` records, excluding candidates already swiped for that job and never revealing the candidate's job interaction. Draft and closed jobs remain visible/manageable in the recruiter's own job list but do not open a candidate deck; deck and recruiter-swipe requests return `409 JOB_NOT_PUBLISHED`.
 5. A swipe writes one `CandidateInteraction` per `(jobId, candidateId)`. The recruiter identity is stored for audit, but another recruiter of the same company cannot create a second decision for the same pair.
 6. A recruiter matches page lists only mutual matches for the recruiter's company.
 
@@ -92,9 +92,11 @@ Both swipe services use the same write-then-read sequence:
 1. Commit the current swipe with an upsert.
 2. After that write is committed, read the other side's LIKE.
 3. If both sides LIKE, call `createMany({ skipDuplicates: true })` for the unique `(candidateId, jobId)` pair, then read the match.
-4. Return `matchCreated: true` and the match summary only when this request created/completed the mutual match; otherwise return `matchCreated: false` and `match: null`.
+4. Return `matchCreated: true` only when this request inserted a new match row. Return `isMatched: true` and `matchId` whenever the match exists, including a retry or later SKIP; otherwise return `isMatched: false` and `matchId: null`.
 
-This avoids a SERIALIZABLE transaction while the database uniqueness constraint absorbs the race where both requests try to create the same match. Changing a LIKE to SKIP later does not delete a match. There is no `POST /matches`.
+This avoids a SERIALIZABLE transaction while the database uniqueness constraint absorbs the race where both requests try to create the same match. The service uses the `createMany` result to set `matchCreated`; a duplicate insert is not reported as a new match. Changing a LIKE to SKIP later does not delete a match. There is no `POST /matches`.
+
+Client retry behavior: after a successful `matchCreated: true`, show the celebration and use `matchId` to load the full match. If a request times out, retrying the same swipe is safe; a response with `matchCreated: false`, `isMatched: true`, and a `matchId` means the match already exists, so refresh the match instead of replaying the creation celebration.
 
 ## Proposed data model
 
@@ -119,7 +121,7 @@ Job (existing)
   id, title, company display name, location, work arrangement,
   employment type, salary range, description, isDemo
   companyId: nullable UUID                  -> proposed owner relation
-  isOpen: boolean default true               -> proposed deck visibility
+  status: DRAFT | PUBLISHED | CLOSED        -> proposed publication state
        |
        +--> JobSkill (existing)
        +--> JobInteraction (existing)
@@ -128,11 +130,12 @@ Job (existing)
        +--> Application (existing candidate tracker)
 ```
 
-Proposed constraints:
+Proposed constraints and visibility mapping:
 
 - `CandidateInteraction` has one decision per `(jobId, candidateId)`, with `recruiterId` referencing an authorized recruiter of that job's company.
 - `Match` has `@@unique([candidateId, jobId])` and stores `createdAt`.
-- Recruiter-created jobs use `isDemo = false`; seeded demo jobs remain fictional and visibly labeled.
+- The current schema has no publication field. Add `status` through a future migration; existing seeded jobs are backfilled/treated as `PUBLISHED`, recruiter-created jobs start as `DRAFT`, and only `PUBLISHED` jobs appear in candidate discovery/public browsing. `CLOSED` jobs remain manageable by their owner.
+- `isDemo` labels fictional seed data and is not a visibility flag. Recruiter-created records are not seeded demo data; any fictional hackathon records must be labeled explicitly.
 - Existing stable seed ids remain slugs such as `job-001` and `typescript`; recruiter-created ids may be UUIDs.
 
 ## Security and authorization
@@ -149,7 +152,7 @@ Proposed constraints:
 
 ## Compatibility score
 
-Implemented in `api/src/matching/match-score.ts` as a pure function:
+Implemented in `api/src/matching/match-score.ts` as a pure function. The score is not AI-generated:
 
 ```text
 score = round(70 * requiredRatio + 15 * niceToHaveRatio + 15 * preferenceFit)
@@ -164,7 +167,7 @@ Only skills the candidate explicitly listed count in the skill ratios. Preferenc
 | `unconfirmedSkills` | Not listed, but mentioned in profile text, or no skills were listed | No |
 | `missingSkills` | Not listed or mentioned when the candidate has a skill list | No |
 
-The UI may use labels such as Strong fit, Partial fit, and Stretch. It must not show the score as a percentage or hiring probability.
+AI may explain the deterministic result and provide evidence-based recommendations, but it must not calculate, alter, or present it as a hiring probability. The score is never a mutual match. The UI may use labels such as Strong fit, Partial fit, and Stretch; it must not show the score as a percentage.
 
 ## AI and MATCHBACK Bot architecture
 
@@ -186,7 +189,7 @@ Web Bot panel
   -> Claude structured/text response or deterministic fallback
 ```
 
-The server is stateless. The web sends the conversation history on every request. The endpoint is throttled, does not persist chat, and never becomes official U-Bot integration.
+The server is stateless. The web sends the conversation history on every request. The request is limited to 20 messages, 2,000 characters per message, and 20,000 total characters. The endpoint is throttled, does not persist chat, and never becomes official U-Bot integration. The service caps generated output, avoids sending duplicate context, and uses the deterministic fallback without failing the page when AI is unavailable.
 
 ## Known limitations
 

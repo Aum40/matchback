@@ -13,13 +13,20 @@ MATCHBACK is a two-sided, AI-assisted "Tinder for Jobs" for university students,
 - A **mutual match** exists only when both sides LIKE the same candidate/job pair.
 - The deterministic compatibility score describes profile fit. It is never a mutual match, a hiring probability, or a promise of an employer response.
 - Candidate likes do not submit job applications. The existing application tracker remains self-reported by the candidate.
-- All seeded jobs and companies are fictional demo data. The UI must show a `Demo data` label; recruiter-created jobs are not demo data.
+- Seeded jobs and companies are fictional demo data. They must never be presented as real vacancies, and the UI must show a `Demo data` label. Recruiter-created records are recruiter-owned data, not seeded demo data; if fictional records are created for the hackathon walkthrough, they must be explicitly marked as demo records too.
 
 The hackathon deadline is **16 October 2026 at 14:00 ICT**. A small, working end-to-end demo is more important than extra features.
 
 ### Candidate experience
 
-The candidate MVP includes authentication, profile editing, skills, education, experience, projects, a mobile-first job swipe deck, deterministic compatibility analysis, AI explanation, Resume Coach, saved jobs, self-reported application tracking, and a mutual matches page.
+The candidate MVP includes authentication, profile editing, skills, education, experience, projects, a desktop-first fully responsive job swipe deck, deterministic compatibility analysis, AI explanation, Resume Coach, saved jobs, self-reported application tracking, and a mutual matches page.
+
+### Design requirements
+
+- Desktop is the primary design target. Tablet and mobile layouts remain usable and responsive.
+- Swipe cards are text-first. Do not add candidate profile photos, company logos, image uploads, avatar uploads, or image-based matching.
+- Support mouse dragging and touch swiping. Keep visible Like/Pass buttons and keyboard-accessible alternatives.
+- Use text, labels, and icons in addition to color; every page and interaction has loading, empty, error, and permission states.
 
 ### Recruiter experience
 
@@ -34,7 +41,7 @@ For `(candidateId, jobId)`, the backend creates a match only when both records e
 
 Matches are created only inside the two swipe services. Clients cannot create, delete, or un-match them. Persist each swipe, enforce one match per candidate/job pair, and use the write-then-read algorithm plus a database uniqueness constraint so simultaneous swipes are safe and idempotent. A later SKIP does not remove an existing match.
 
-Both swipe endpoints return `matchCreated` and `match`. `matchCreated` is true only when this request creates or completes the mutual match, and `match` is non-null only in that case. The UI shows "It's a Match!" only from that backend result.
+Both swipe endpoints return `matchCreated`, `isMatched`, and `matchId`. `matchCreated` is true only when this request inserts a new match row. `isMatched` is true whenever the mutual match already exists, including a retry or a later SKIP. `matchId` is non-null whenever `isMatched` is true. Duplicate swipes use idempotent upserts and never create duplicate interactions or matches. The UI shows "It's a Match!" only when `matchCreated` is true; a retry with `isMatched` true refreshes the match instead of replaying the creation celebration.
 
 Before a match, a recruiter receives only a `CandidateCard`: first name, profile text, listed skills, and deterministic fit summary. Do not reveal email, full name, or whether the candidate liked the job. Contact details may be returned only after a mutual match.
 
@@ -69,7 +76,7 @@ Before a match, a recruiter receives only a `CandidateCard`: first name, profile
 
 ## 3. Current implementation status
 
-`main` currently implements the candidate side: email/password and optional Google auth, candidate profiles, public demo jobs and skills, candidate job discovery/swipes, deterministic match analysis, AI/fallback explanation, Resume Coach, saved jobs, and self-reported applications. It does not yet implement recruiter roles, companies, recruiter-owned jobs, recruiter swipes, mutual-match persistence/API, matches pages, or MATCHBACK Bot. Those are planned changes and must be labeled as planned until they land.
+`main` currently implements email/password and optional Google auth, public health/jobs/skills endpoints, candidate profiles, candidate job discovery/swipes, deterministic match analysis, AI/fallback explanation, Resume Coach, saved jobs, self-reported applications, and admin user management. It does not yet implement recruiter roles, companies, recruiter-owned jobs, recruiter swipes, explicit job publication states, mutual-match persistence/API, matches pages, or MATCHBACK Bot. Those are planned changes and must be labeled as planned until they land.
 
 ## 4. Technical stack
 
@@ -95,19 +102,20 @@ API and web are independent projects with independent lockfiles. Run commands in
 - Controllers handle HTTP only. Business logic belongs in services; pure scoring and fallback logic must have no Nest or Prisma imports.
 - Only `AiService` imports `@anthropic-ai/sdk`.
 - Web response types are handwritten in `web/src/lib/api/api.type.ts`; do not import API source files into the web.
-- Proposed recruiter/mutual-match work must follow [docs/api-contract.md](docs/api-contract.md) and [docs/team-ownership.md](docs/team-ownership.md). [docs/two-sided-plan.md](docs/two-sided-plan.md) contains the implementation order and risk notes.
+- [docs/team-ownership.md](docs/team-ownership.md) is authoritative for file ownership. [docs/api-contract.md](docs/api-contract.md) is authoritative for HTTP types and endpoint behavior. [docs/two-sided-plan.md](docs/two-sided-plan.md) contains implementation order and risk notes and must not contradict either file.
 
 ## 6. Security and API rules
 
 - `USER` means candidate and is retained for compatibility with existing data and tokens. `RECRUITER` is the recruiter role. `ADMIN` is never self-assigned at sign-up.
 - Every non-public route requires a bearer access token. Guards run in order: throttler -> `AuthGuard` -> `RolesGuard`.
 - Use `@CurrentUser('sub')`; never accept the acting user id from a body. Scope user-owned queries by `userId` and return 404 for another user's resource.
-- Recruiter routes must load the recruiter's company from the database and verify `job.companyId` against it. An unauthorized job must look like `JOB_NOT_FOUND` (404), not reveal ownership.
+- Recruiter routes must load the recruiter's company from the database and verify `job.companyId` against it. An unauthorized job must look like `JOB_NOT_FOUND` (404), not reveal ownership. Recruiter job management may access DRAFT, PUBLISHED, and CLOSED jobs; candidate decks and recruiter swipes require PUBLISHED and return `409 JOB_NOT_PUBLISHED` otherwise.
 - Use global `ValidationPipe({ whitelist: true, transform: true })`. DTOs validate every body and query; trim free text, normalize emails, and transform numeric inputs.
 - Errors use `{ statusCode, message, code? }`. Clients branch on stable `code`, never message text. Do not expose Prisma details.
 - Never return password hashes, refresh-token data, deleted users, or internal ids to AI. Send no name/email/user id to AI prompts unless a future contract explicitly requires it.
 - Candidate privacy before a mutual match is mandatory. Do not expose a recruiter's candidate deck decision or a candidate's job decision to the other side.
 - AI endpoints are POST requests with the AI throttle and run only from explicit user actions.
+- The score is deterministic profile fit from 0 to 100. AI explains the score and recommends evidence-based improvements; it never calculates, changes, or presents the score as hiring probability. A score is never a mutual match.
 
 ## 7. Data and matching rules
 
@@ -121,6 +129,7 @@ API and web are independent projects with independent lockfiles. Run commands in
   Only listed candidate skills count. Matched, unconfirmed (`MENTIONED_IN_PROFILE` or `NO_SKILLS_LISTED`), and missing skills remain distinct. The score is profile fit, never a percentage or hiring prediction.
 
 - A candidate LIKE currently creates or preserves an `INTERESTED` self-tracker entry; it does not submit an application and must not be described as one.
+- Current `Job` rows have no publication field. The proposed recruiter model adds a `status` enum with `DRAFT`, `PUBLISHED`, and `CLOSED`: existing seeded rows are backfilled/treated as `PUBLISHED`; recruiter-created jobs start as `DRAFT`; only `PUBLISHED` jobs appear in candidate discovery; recruiters may manage their own jobs in every status. `isDemo` labels fictional data and never controls visibility.
 
 ## 8. Workflow and definition of done
 
