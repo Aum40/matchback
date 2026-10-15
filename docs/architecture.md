@@ -1,5 +1,7 @@
 # MATCHBACK architecture
 
+> This file describes what is **on `main` today** (candidate side only). The two-sided target (recruiter role, companies, recruiter swipes, mutual matches, MATCHBACK Bot) is specified in [two-sided-plan.md](two-sided-plan.md) and [api-contract.md](api-contract.md). Update this file as each part lands.
+
 ## Overview
 
 ```

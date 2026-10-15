@@ -5,11 +5,25 @@
 
 ## 1. Product
 
-MATCHBACK is an AI-assisted job discovery web app with a Tinder-style swipe interface. It is being built in a **two-day hackathon (about 26.5 hours)**. The deliverables are source code, a pitch deck, a write-up and a **working demo website**.
+MATCHBACK is a **two-sided "Tinder for Jobs"** with AI assistance.
+- Candidates swipe on job postings.
+- Recruiters swipe on candidates for a specific job.
+- A **mutual match** happens only when both sides say LIKE.
+
+It is being built for the **AI Track of U-Hackathon 2026**. **Deadline: 16 Oct 2026, 14:00 (Thailand).** The deliverables are source code, a pitch deck, a write-up and a **working demo website**.
+
+> **The two-sided scope is being built now.** Before writing code, read [docs/two-sided-plan.md](docs/two-sided-plan.md) (schema, authorization, **file ownership per developer**, implementation order) and [docs/api-contract.md](docs/api-contract.md) (the shared API contract). Sections below marked *(planned)* aren't on `main` yet.
 
 **Who it's for:** university students, recent graduates and early-career professionals. They apply to many jobs, hear nothing back, and don't know whether their skills fit or how to improve their resume.
 
-**What it does:** swipe-based discovery, an explainable match score per job, AI resume suggestions, and an application tracker.
+**Recruiters** create a company and job postings, then swipe on candidates for each job.
+
+**What it does:**
+- Swipe discovery on both sides, plus real mutual matches
+- An explainable match score
+- AI resume suggestions
+- MATCHBACK Bot, a career assistant *(planned)*
+- An application tracker
 
 ### Product principles (non-negotiable)
 
@@ -18,32 +32,42 @@ MATCHBACK is an AI-assisted job discovery web app with a Tinder-style swipe inte
 3. **Never invent candidate facts.** AI must not add skills, experience, numbers or achievements that aren't in the profile.
 4. **Missing information is not a skill gap.** If the profile doesn't say, we say "not enough information", not "you lack X".
 5. **The tracker is self-reported.** Users update the status themselves. Nothing may suggest that employers update it.
-6. **Demo data is labeled.** Every job is fictional (`Job.isDemo = true`, company names end in `(demo)`), and the UI shows a "Demo data" badge.
+6. **A "match" means mutual.** "It's a Match!" appears only when the API returns a created mutual match (`SwipeResult.match`). A high score is never a match, and the score is never called a match result.
+7. **Candidate privacy before a match.** Recruiters see a `CandidateCard` (first name, profile text, skills, score). Email and full name are shown only after a mutual match. The recruiter deck never reveals whether a candidate liked the job.
+8. **Demo data is labeled.** Every job is fictional (`Job.isDemo = true`, company names end in `(demo)`), and the UI shows a "Demo data" badge.
 
 ## 2. Hackathon scope
 
-**In scope (MVP):** profile, swipe discovery, explainable match, resume coach, saved jobs plus application tracking.
+**In scope (MVP):**
+- **Candidate:** profile, job swipe deck, explainable match, resume coach, saved jobs, application tracking, the matches page.
+- **Recruiter** *(planned)*: company profile, create/manage jobs, a per-job candidate swipe deck, the matches page.
+- **Mutual matching** *(planned)*: created only inside the two swipe endpoints, with a match celebration modal.
+- **MATCHBACK Bot** *(planned)*: a floating AI career assistant (explain fit, job requirements, skill gaps, resume bullets, interview prep).
 
 **Out of scope — do not build:**
-- employer accounts or dashboards
-- chat
+- chat between users (the bot is the only chat)
+- un-matching or blocking
+- multi-company recruiters or team management
+- the **official U-Bot** integration — **blocked** until there are verified official docs, an endpoint and credentials. Never invent a U-Bot endpoint or claim we integrate with it.
 - job scraping or real job feeds
 - custom ML training
 - email or push notification infrastructure
 - payments
 - a second auth system
 
-Login (email/password and optional Google) already exists from the starter. Use it; don't extend it.
+Login (email/password and optional Google) already exists. The only planned change is the `RECRUITER` role chosen at sign-up; don't build anything else in auth.
 
 **Priorities:** a working end-to-end demo beats more features. Prefer the smallest complete solution. When unsure whether something is in scope, ask.
 
 ## 3. How to work in this repo
 
 1. **Read this file first, then inspect the code you're about to change** (and its tests) before editing. Follow the patterns already there.
-2. Work **incrementally**. Keep every step runnable and **preserve working functionality**. Don't break the demo path: login → discover → job detail → saved → applications.
-3. **Don't add dependencies, abstractions or rewrites** unless the task needs them. If a new dependency is necessary, say why.
-4. After every change, **run the checks for each app you touched** (section 12). **Never claim tests or builds passed unless you ran them in this session**. Report failures honestly, with the output.
-5. **Document unfinished work and known limitations** in the PR description or the final message. Never hide a stub behind UI that looks finished.
+2. **Stay in the files your role owns** (file ownership table in [docs/two-sided-plan.md](docs/two-sided-plan.md#4-file-ownership-4-developers-in-parallel)). Need a change in someone else's file? Ask the owner. Don't edit across the boundary.
+3. **Build against [docs/api-contract.md](docs/api-contract.md).** If the contract is wrong, change it in its own small PR (owner: Dev 3) and tell the team. Never let code and contract drift.
+4. Work **incrementally**. Keep every step runnable and **preserve working functionality**. Don't break the existing demo path (login → discover → job detail → saved → applications). Also check the must-not-break list in the plan.
+5. **Don't add dependencies, abstractions or rewrites** unless the task needs them. If a new dependency is necessary, say why.
+6. After every change, **run the checks for each app you touched** (section 12). **Never claim tests or builds passed unless you ran them in this session**. Report failures honestly, with the output.
+7. **Document unfinished work and known limitations** in the PR description or the final message. Never hide a stub behind UI that looks finished.
 
 ## 4. Tech stack
 
@@ -80,6 +104,9 @@ api/
   src/resume/                  POST /resume/coach
   src/applications/            GET/PATCH/DELETE /applications
   src/auth/ users/ admin/      from the starter: login, guards, admin
+  src/companies/ recruiter/    (planned) company profile, recruiter jobs + candidate deck
+  src/matches/                 (planned) mutual matches (read-only API)
+  src/assistant/               (planned) MATCHBACK Bot
   src/common/                  decorators, throttle presets, PrismaExceptionFilter
 web/
   src/app/page.tsx             landing (public, shows sample jobs)
@@ -88,10 +115,14 @@ web/
   src/app/(app)/profile        candidate profile form
   src/app/(app)/saved          INTERESTED applications
   src/app/(app)/applications   applied/interviewing/… tracking
+  src/app/(app)/matches        (planned) candidate's mutual matches
+  src/app/(app)/recruiter/**   (planned) recruiter area: company, jobs, candidate deck, matches
   src/components/features/     jobs/ match/ profile/ applications/ auth/
   src/lib/api/                 apiFetch + one *.api.ts per API area + api.type.ts
   src/lib/actions/             Server Actions (all mutations)
-docs/architecture.md           modules, data flow, match formula
+docs/architecture.md           modules, data flow, match formula (current state)
+docs/api-contract.md           ★ shared API contract for the two-sided build
+docs/two-sided-plan.md         ★ schema proposal, authz, file ownership, order, risks
 ```
 
 ## 6. Commands
@@ -138,6 +169,11 @@ docs/architecture.md           modules, data flow, match formula
 
 - Global `ValidationPipe({ whitelist: true, transform: true })`: every body and query is a DTO class. Use `@Trim()` on free text, `@NormalizeEmail()` on emails, and `@Type(() => Number)` on numeric query params.
 - **Errors:** `{ statusCode, message, code? }`. Throw Nest exceptions with a stable `code` the web can branch on, e.g. `new NotFoundException({ message, code: 'JOB_NOT_FOUND' })`. The web reads it from `ApiError.code`; branch on `code`, never on `message`. `PrismaExceptionFilter` maps leftover Prisma errors (P2025→404, P2002→409, P2003→400) and hides DB details.
+- **Roles:**
+  - `USER` = **candidate** (the name is kept on purpose: renaming would migrate data and every token), `RECRUITER` *(planned)*, `ADMIN`.
+  - Candidate-only routes get `@Roles(Role.USER)`, recruiter routes `@Roles(Role.RECRUITER)`.
+  - `ADMIN` can never be chosen at sign-up.
+- **Recruiter ownership** *(planned)*: every recruiter job route checks `job.companyId === caller's companyId`, loaded from the DB rather than trusted from the token. A mismatch returns 404 `JOB_NOT_FOUND`.
 - **Auth:** every route needs a bearer token unless it is marked `@Public()`. Guards run in order: throttler → `AuthGuard` (deleted or old session → 401, suspended → 403 `ACCOUNT_SUSPENDED`) → `RolesGuard` (`@Roles(Role.ADMIN)`).
 - **Ownership:** get the user with `@CurrentUser('sub')`, never from the body. Scope every user-owned query by `userId` in the `where` clause. For another user's id, return 404, not 403.
 - Public endpoints today: `GET /health`, `/jobs`, `/jobs/:id`, `/skills`, and the `/auth/*` routes.
@@ -168,6 +204,25 @@ docs/architecture.md           modules, data flow, match formula
   - `unconfirmedSkills` — missing information. Reason `MENTIONED_IN_PROFILE` (the name appears in experience or projects text) or `NO_SKILLS_LISTED` (the profile lists no skills at all). These don't count toward the score and aren't called gaps.
   - `missingSkills` — confirmed gaps.
 - Never present the score as a probability of being hired.
+
+### Mutual match *(planned — normative rules in [docs/api-contract.md](docs/api-contract.md#mutual-match-rules-normative))*
+
+- A match for `(candidate, job)` exists only when the candidate LIKEd the job (`JobInteraction`) **and** a recruiter of that job's company LIKEd the candidate for that job (`CandidateInteraction`).
+- **Clients can never create a match.** There is no POST `/matches`. Matches are created only inside the two swipe services, using the **write-then-read** algorithm:
+  1. Commit the swipe.
+  2. Read the other side.
+  3. `createMany({ skipDuplicates: true })` on `@@unique([candidateId, jobId])`.
+
+  This is race-safe without SERIALIZABLE. Keep it, and keep its e2e test.
+- Both swipe endpoints return `SwipeResult` with `match` non-null only when this swipe created or completed the match. The web shows the match modal only then.
+- A match is not removed when a side later changes LIKE to SKIP, and resetting swipes doesn't delete matches.
+
+### MATCHBACK Bot *(planned)*
+
+- `POST /assistant/messages`. The server is stateless: the web sends the history (≤ 20 messages).
+- It goes through `AiService` with the same rules prompt (never invent facts, never claim hiring odds) and the same fallback when there is no key or AI errors.
+- An optional `jobId` gives the bot the same `MatchContext` as the explanation endpoint (no email/name).
+- It is **not U-Bot.** Don't name or describe it as the official hackathon U-Bot.
 
 ### AI (`api/src/infrastructure/ai/`)
 
@@ -207,7 +262,8 @@ docs/architecture.md           modules, data flow, match formula
 
 ## 14. Git and team workflow
 
-- Work on a branch (`feat/<area>-<thing>`) and open a PR into `main`. Don't commit directly to `main` unless the user says so. Commit or push only when asked.
+- **Branches** (one per developer, see the plan): `feature/candidate-ui` (Dev 1), `feature/recruiter-ui` (Dev 2), `feature/mutual-match` (Dev 3), `feature/ai-bot` (Dev 4). Short-lived sub-branches off these are fine.
+- `main` is protected: a PR is required, CI (`api (NestJS)` + `web (Next.js)`) must be green, and the branch must be up to date. No one can bypass this. Agents must never try to push to `main`. Commit or push only when asked. Never merge a PR without the team agreeing.
+- **Schema/migration PRs come from Dev 3 only, and merge first.** After pulling one, run `pnpm install && pnpm prisma migrate dev` in `api/`.
 - Commit `pnpm-lock.yaml` with any `package.json` change; CI installs with `--frozen-lockfile`.
-- Keep schema changes in small, separate PRs, and tell the team. Everyone else then runs `pnpm install && pnpm prisma migrate dev`.
 - CI (`.github/workflows/ci.yml`) must be green before merging.

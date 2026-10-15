@@ -8,6 +8,8 @@ MATCHBACK is an AI-assisted job discovery app for students, recent graduates and
 
 - **api/**: NestJS 11 + Prisma 7 + PostgreSQL. It owns the deterministic match score and the AI calls, and falls back to rule-based text when there is no API key.
 - **web/**: Next.js 16 + next-auth v5 + Tailwind/shadcn. It is mobile-first.
+> **In progress:** two-sided matching — recruiters swipe candidates per job, and a match needs both sides to say LIKE. See [docs/two-sided-plan.md](docs/two-sided-plan.md) for the plan and team file ownership, and [docs/api-contract.md](docs/api-contract.md) for the contract.
+
 - [AGENTS.md](AGENTS.md) holds the rules for humans and AI agents. [docs/architecture.md](docs/architecture.md) covers the modules, data flow and the scoring formula.
 
 | Route | What it does | Status |
