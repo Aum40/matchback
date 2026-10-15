@@ -1,6 +1,6 @@
 import { ApiError } from "@/lib/api/api-error";
 import { AuthApi } from "@/lib/api/auth.api";
-import type { LoginResponse } from "@/lib/api/api.type";
+import type { LoginResponse, Role } from "@/lib/api/api.type";
 import { env, googleEnabled } from "@/lib/env";
 import { loginSchema, registerSchema } from "@/lib/schemas/auth.schema";
 import { SESSION_MAX_AGE, storeTokens } from "@/lib/session-token";
@@ -71,7 +71,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: "/login", error: "/login" },
 
   providers: [
-    Credentials({ authorize }),
+    Credentials({ credentials: { // เพิ่ม credentials block เพื่อบอก NextAuth ว่าห้ามทิ้งตัวแปรเหล่านี้ตอน Submit
+        email: {},
+        password: {},
+        name: {},
+        intent: {},
+        accountType: {},
+      },
+      authorize }),
     // ไม่ตั้ง GOOGLE_CLIENT_ID/SECRET = ไม่มี provider นี้ (หน้า login ซ่อนปุ่มด้วย)
     ...(googleEnabled
       ? [
@@ -85,26 +92,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   callbacks: {
     async jwt({ token, user, account }) {
-      // กลับมาจาก Google: ส่ง id_token ให้ API ตรวจเอง แล้วใช้ token ของ API แทน
-      // (session ของเว็บไม่เคยใช้ token ของ Google เรียก API ตรง ๆ)
       if (account?.provider === "google" && account.id_token) {
         const result = await AuthApi.loginWithGoogle(account.id_token);
+        token.role = (result.user as any).accountType || (result.user as any).role;
         return storeTokens(token, result, result.user);
       }
 
       if (user) {
         storeTokens(token, user, user);
+        token.role = (user as any).accountType || (user as any).role;
       }
 
       return token;
     },
 
     session({ token, session }) {
-      session.user.id = token.sub;
+      session.user.id = token.sub as string;
       session.user.name = token.name;
-      session.user.email = token.email;
-      session.user.role = token.role;
-      session.user.access_token = token.access_token;
+      session.user.email = token.email as string;
+      
+      // ดึง accountType ที่ได้จาก API (NestJS) มาใส่ให้ session.user.role 
+      session.user.role = (token.role || token.accountType) as Role;
+      
+      // (ทางเลือก) เพิ่ม accountType เข้าไปตรงๆ ด้วยเผื่อ component อื่นเรียกใช้
+      (session.user as any).accountType = token.accountType;
+      
+      session.user.access_token = token.access_token as string;
       return session;
     },
   },

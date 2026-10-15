@@ -4,12 +4,12 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { getCompany, updateCompany, CompanyInput } from "@/lib/api/recruiter.api";
+  getCompanyAction,
+  updateCompanyAction,
+  CompanyInput,
+} from "@/lib/actions/recruiter.action";
 
 export default function CompanyProfilePage() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function CompanyProfilePage() {
   useEffect(() => {
     async function loadCompany() {
       try {
-        const res = await getCompany();
+        const res = await getCompanyAction();
         if (res.data) {
           setFormData({
             name: res.data.name || "",
@@ -42,7 +42,7 @@ export default function CompanyProfilePage() {
           });
         }
       } catch (err) {
-        // หากยังไม่มีบริษัท (404/409) ไม่ต้องแสดง error เพราะจะให้กรอกสร้างใหม่
+        // หากยังไม่มีบริษัท ไม่ต้องแสดง error
       } finally {
         setLoading(false);
       }
@@ -56,20 +56,15 @@ export default function CompanyProfilePage() {
     setSuccess(false);
 
     startTransition(async () => {
-      try {
-        const res = await updateCompany(formData);
-        if (res.error) {
-          setError(res.error.message || "Failed to save company profile");
-          return;
-        }
-        setSuccess(true);
-        // หลังจากสร้าง/อัปเดตบริษัทสำเร็จ นำทางไปหน้ารายการงานของ Recruiter
-        setTimeout(() => {
-          router.push("/recruiter/jobs");
-        }, 1000);
-      } catch (err: any) {
-        setError(err.message || "An unexpected error occurred");
+      const res = await updateCompanyAction(formData);
+      if (res.error) {
+        setError(res.error);
+        return;
       }
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/recruiter/jobs");
+      }, 1000);
     });
   };
 
@@ -123,7 +118,7 @@ export default function CompanyProfilePage() {
             <FieldLabel htmlFor="industry">Industry</FieldLabel>
             <Input
               id="industry"
-              value={formData.industry}
+              value={formData.industry || ""}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, industry: e.target.value }))
               }
@@ -135,7 +130,7 @@ export default function CompanyProfilePage() {
             <FieldLabel htmlFor="location">Location</FieldLabel>
             <Input
               id="location"
-              value={formData.location}
+              value={formData.location || ""}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, location: e.target.value }))
               }
@@ -148,7 +143,7 @@ export default function CompanyProfilePage() {
             <Input
               id="website"
               type="url"
-              value={formData.website}
+              value={formData.website || ""}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, website: e.target.value }))
               }
@@ -160,7 +155,7 @@ export default function CompanyProfilePage() {
             <FieldLabel htmlFor="size">Company Size</FieldLabel>
             <Input
               id="size"
-              value={formData.size}
+              value={formData.size || ""}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, size: e.target.value }))
               }
@@ -174,7 +169,7 @@ export default function CompanyProfilePage() {
               id="description"
               rows={4}
               className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={formData.description}
+              value={formData.description || ""}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, description: e.target.value }))
               }

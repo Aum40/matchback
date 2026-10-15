@@ -12,20 +12,18 @@ import {
 import type { Application, ApplicationStatus } from "@/lib/api/api.type";
 import { APPLICATION_STATUS_LABELS } from "@/lib/format";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-/**
- * งานหนึ่งรายการในหน้า Saved / Applications
- * ทุกอย่างผู้ใช้กรอกเอง — ข้อความในหน้านี้ต้องไม่ทำให้เข้าใจว่าระบบรู้ผลจากนายจ้าง
- */
 export default function ApplicationCard({
   application,
   showTracking = true,
-}: {
+}:  {
   application: Application;
-  /** false = หน้า Saved แสดงแค่การ์ด + ปุ่มเริ่มติดตาม/ลบ */
   showTracking?: boolean;
-}) {
+  
+})  {
+  const router = useRouter();
   const [status, setStatus] = useState<ApplicationStatus>(application.status);
   const [notes, setNotes] = useState(application.notes ?? "");
   const [feedback, setFeedback] = useState(application.employerFeedback ?? "");
@@ -33,20 +31,35 @@ export default function ApplicationCard({
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // 💡 เช็คว่าฝั่ง Employer กดสนใจตอบกลับมาหรือยัง (รองรับทั้ง isMatch, matched หรือ status MATCHED)
+  const isEmployerInterested =
+    Boolean((application as any).isMatch) ||
+    Boolean((application as any).matched) ||
+    (application as any).status === "MATCHED" ||
+    Boolean((application as any).job?.isMatch);
+
   const save = (patch: Parameters<typeof updateApplicationAction>[1], done: string) =>
     startTransition(async () => {
       setError(null);
       setMessage(null);
       const result = await updateApplicationAction(application.id, patch);
-      if (result.success) setMessage(done);
-      else setError(result.message);
+      if (result.success) {
+        setMessage(done);
+        router.refresh();
+      } else {
+        setError(result.message);
+      }
     });
 
   const remove = () =>
     startTransition(async () => {
       setError(null);
       const result = await removeApplicationAction(application.id);
-      if (!result.success) setError(result.message);
+      if (result.success) {
+        router.refresh();
+      } else {
+        setError(result.message);
+      }
     });
 
   const id = (name: string) => `${application.id}-${name}`;
@@ -55,6 +68,14 @@ export default function ApplicationCard({
     <JobCard job={application.job} skillLimit={4}>
       <div className="grid gap-3 border-t pt-4">
         {error && <FormAlert message={error} />}
+
+        {/* 💡 ป้ายแจ้งเตือนเมื่อ Employer กด interested ตอบกลับมา */}
+        {isEmployerInterested && (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-500/15 p-3 text-sm font-semibold text-emerald-700 dark:text-emerald-400 animate-pulse">
+            <span>🎉</span>
+            <span>Employer is interested in your profile!</span>
+          </div>
+        )}
 
         {showTracking ? (
           <>

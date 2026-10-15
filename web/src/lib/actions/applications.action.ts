@@ -10,7 +10,8 @@ import {
 import { revalidatePath } from "next/cache";
 import z from "zod";
 
-const idSchema = z.uuid();
+// 💡 เปลี่ยนจาก z.uuid() เป็น z.string().trim().min(1)
+const idSchema = z.string().trim().min(1);
 
 function revalidateLists() {
   revalidatePath("/saved");

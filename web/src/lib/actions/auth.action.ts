@@ -1,7 +1,7 @@
 "use server";
 
 import { ErrorActionResult } from "@/lib/actions/action.type";
-import { signIn, signOut } from "@/lib/auth";
+import { auth, signIn, signOut } from "@/lib/auth";
 import { loginErrorMessage } from "@/lib/login-errors";
 import {
   LoginInput,
@@ -13,11 +13,12 @@ import { CredentialsSignin } from "next-auth";
 import { redirect } from "next/navigation";
 import z from "zod";
 
-/** ล็อกอินและสมัครจบเหมือนกัน: ผ่านแล้วไปหน้า Discover ไม่ผ่านคืน code ให้ฟอร์มแสดง */
+/** แยกการ Redirect ออกมาให้จัดการแยกกันตาม Role */
 async function signInWithCredentials(
   fields: Record<string, string>,
 ): Promise<ErrorActionResult | void> {
   try {
+    // กำหนด redirect: false เพื่อให้เราเขียนเงื่อนไขตรวจสอบเองทีหลัง
     await signIn("credentials", { ...fields, redirect: false });
   } catch (error) {
     if (error instanceof CredentialsSignin) {
@@ -26,20 +27,27 @@ async function signInWithCredentials(
     }
     throw error;
   }
-
-  redirect("/discover");
 }
 
 export async function loginAction(
   input: LoginInput,
 ): Promise<ErrorActionResult | void> {
-  return signInWithCredentials(input);
+  const err = await signInWithCredentials(input as unknown as Record<string, string>);
+  if (err) return err;
+
+  // ล็อกอินเสร็จ เช็กจาก Session ว่าเป็นใคร
+  const session = await auth();
+  const role = session?.user?.role || (session?.user as any)?.accountType;
+  
+  if (role === "RECRUITER") {
+    redirect("/recruiter/jobs");
+  }
+  redirect("/discover");
 }
 
 export async function registerAction(
   input: RegisterInput,
 ): Promise<ErrorActionResult | void> {
-  // ตรวจซ้ำฝั่ง server เสมอ ค่าที่มาจาก browser แก้ได้ทุกอย่าง
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -50,7 +58,14 @@ export async function registerAction(
     };
   }
 
-  return signInWithCredentials({ ...parsed.data, intent: "register" });
+  const err = await signInWithCredentials({ ...parsed.data, intent: "register" } as unknown as Record<string, string>);
+  if (err) return err;
+
+  // สมัครเสร็จ เราดูจากข้อมูลที่กรอกได้เลยว่าเลือก Role อะไร
+  if (parsed.data.accountType === "RECRUITER") {
+    redirect("/recruiter/jobs");
+  }
+  redirect("/discover");
 }
 
 export async function loginWithGoogleAction(): Promise<void> {

@@ -4,63 +4,94 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { createRecruiterJob, JobInput } from "@/lib/api/recruiter.api";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  createRecruiterJobAction,
+  JobInput,
+} from "@/lib/actions/recruiter.action";
 
 export default function CreateJobPage() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<JobInput>({
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    location: string;
+    employmentType: string;
+    workArrangement: "ONSITE" | "HYBRID" | "REMOTE";
+    salaryMin: string;
+    salaryMax: string;
+    skillInput: string;
+    skills: string[];
+  }>({
     title: "",
     description: "",
     location: "",
     employmentType: "FULL_TIME",
-    salaryMin: undefined,
-    salaryMax: undefined,
+    workArrangement: "HYBRID", // 👈 ค่าเริ่มต้น
+    salaryMin: "",
+    salaryMax: "",
+    skillInput: "",
     skills: [],
-    status: "DRAFT",
   });
 
-  const [skillInput, setSkillInput] = useState("");
-
   const handleAddSkill = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && skillInput.trim()) {
+    if (e.key === "Enter" && formData.skillInput.trim()) {
       e.preventDefault();
-      if (!formData.skills?.includes(skillInput.trim())) {
+      if (!formData.skills.includes(formData.skillInput.trim())) {
         setFormData((prev) => ({
           ...prev,
-          skills: [...(prev.skills || []), skillInput.trim()],
+          skills: [...prev.skills, prev.skillInput.trim()],
+          skillInput: "",
         }));
       }
-      setSkillInput("");
     }
   };
 
   const handleRemoveSkill = (skillToRemove: string) => {
     setFormData((prev) => ({
       ...prev,
-      skills: prev.skills?.filter((s) => s !== skillToRemove),
+      skills: prev.skills.filter((s) => s !== skillToRemove),
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    // หากพิมพ์ skill ค้างไว้ในช่องแต่ยังไม่ได้กด Enter ให้ดึงเข้าไปใน array ให้เอง
+    let finalSkills = [...formData.skills];
+    if (formData.skillInput.trim() && !finalSkills.includes(formData.skillInput.trim())) {
+      finalSkills.push(formData.skillInput.trim());
+    }
+
+    if (finalSkills.length === 0) {
+      setError("Please add at least 1 required skill (press Enter after typing).");
+      return;
+    }
+
     startTransition(async () => {
-      try {
-        const res = await createRecruiterJob(formData);
-        if (res.error) {
-          setError(res.error.message || "Failed to create job");
-          return;
-        }
-        router.push("/recruiter/jobs");
-      } catch (err: any) {
-        setError(err.message || "An unexpected error occurred");
+      const payload: JobInput = {
+        title: formData.title,
+        description: formData.description,
+        location: formData.location || undefined,
+        employmentType: formData.employmentType || undefined,
+        workArrangement: formData.workArrangement,
+        salaryMin: formData.salaryMin ? Number(formData.salaryMin) : undefined,
+        salaryMax: formData.salaryMax ? Number(formData.salaryMax) : undefined,
+        skills: finalSkills,
+        status: "DRAFT",
+      };
+
+      const res = await createRecruiterJobAction(payload);
+      if (res.error) {
+        setError(res.error);
+        return;
       }
+      router.push("/recruiter/jobs");
     });
   };
 
@@ -75,7 +106,7 @@ export default function CreateJobPage() {
         </div>
         <Link
           href="/recruiter/jobs"
-          className={buttonVariants({ variant: "outline" })}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           Back to Jobs
         </Link>
@@ -100,7 +131,7 @@ export default function CreateJobPage() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, title: e.target.value }))
               }
-              placeholder="e.g. Senior Full-Stack Developer"
+              placeholder="e.g. Senior Frontend Developer"
             />
           </Field>
 
@@ -117,11 +148,11 @@ export default function CreateJobPage() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, description: e.target.value }))
               }
-              placeholder="Describe the job responsibilities, requirements, and benefits..."
+              placeholder="Describe the role, responsibilities, and requirements..."
             />
           </Field>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field className="gap-1">
               <FieldLabel htmlFor="location">Location</FieldLabel>
               <Input
@@ -130,7 +161,7 @@ export default function CreateJobPage() {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, location: e.target.value }))
                 }
-                placeholder="e.g. Remote / Bangkok"
+                placeholder="e.g. Bangkok, Thailand"
               />
             </Field>
 
@@ -138,19 +169,35 @@ export default function CreateJobPage() {
               <FieldLabel htmlFor="employmentType">Employment Type</FieldLabel>
               <select
                 id="employmentType"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={formData.employmentType}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    employmentType: e.target.value,
-                  }))
+                  setFormData((prev) => ({ ...prev, employmentType: e.target.value }))
                 }
               >
                 <option value="FULL_TIME">Full-time</option>
                 <option value="PART_TIME">Part-time</option>
                 <option value="CONTRACT">Contract</option>
                 <option value="INTERNSHIP">Internship</option>
+              </select>
+            </Field>
+
+            <Field className="gap-1">
+              <FieldLabel htmlFor="workArrangement">Work Arrangement</FieldLabel>
+              <select
+                id="workArrangement"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formData.workArrangement}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    workArrangement: e.target.value as "ONSITE" | "HYBRID" | "REMOTE",
+                  }))
+                }
+              >
+                <option value="ONSITE">On-site</option>
+                <option value="HYBRID">Hybrid</option>
+                <option value="REMOTE">Remote</option>
               </select>
             </Field>
           </div>
@@ -161,12 +208,9 @@ export default function CreateJobPage() {
               <Input
                 id="salaryMin"
                 type="number"
-                value={formData.salaryMin || ""}
+                value={formData.salaryMin}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    salaryMin: e.target.value ? Number(e.target.value) : undefined,
-                  }))
+                  setFormData((prev) => ({ ...prev, salaryMin: e.target.value }))
                 }
                 placeholder="e.g. 50000"
               />
@@ -177,12 +221,9 @@ export default function CreateJobPage() {
               <Input
                 id="salaryMax"
                 type="number"
-                value={formData.salaryMax || ""}
+                value={formData.salaryMax}
                 onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    salaryMax: e.target.value ? Number(e.target.value) : undefined,
-                  }))
+                  setFormData((prev) => ({ ...prev, salaryMax: e.target.value }))
                 }
                 placeholder="e.g. 80000"
               />
@@ -193,23 +234,25 @@ export default function CreateJobPage() {
             <FieldLabel htmlFor="skills">Required Skills (Press Enter to add)</FieldLabel>
             <Input
               id="skills"
-              value={skillInput}
-              onChange={(e) => setSkillInput(e.target.value)}
+              value={formData.skillInput}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, skillInput: e.target.value }))
+              }
               onKeyDown={handleAddSkill}
-              placeholder="e.g. React, Node.js, TypeScript"
+              placeholder="e.g. React, TypeScript, Node.js"
             />
-            {formData.skills && formData.skills.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2">
+            {formData.skills.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
                 {formData.skills.map((skill) => (
                   <span
                     key={skill}
-                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2.5 py-1 text-xs font-medium"
                   >
                     {skill}
                     <button
                       type="button"
                       onClick={() => handleRemoveSkill(skill)}
-                      className="hover:text-destructive"
+                      className="text-muted-foreground hover:text-foreground"
                     >
                       ×
                     </button>
@@ -220,11 +263,9 @@ export default function CreateJobPage() {
           </Field>
         </FieldGroup>
 
-        <div className="flex gap-3">
-          <Button type="submit" className="flex-1" size="lg" disabled={isPending}>
-            {isPending ? "Creating Job..." : "Save as Draft"}
-          </Button>
-        </div>
+        <Button type="submit" className="w-full" size="lg" disabled={isPending}>
+          {isPending ? "Creating..." : "Save as Draft"}
+        </Button>
       </form>
     </div>
   );

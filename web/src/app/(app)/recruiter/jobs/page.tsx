@@ -4,10 +4,21 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
-  getRecruiterJobs,
-  updateRecruiterJob,
-  JobResponse,
-} from "@/lib/api/recruiter.api";
+  getRecruiterJobsAction,
+  updateRecruiterJobAction,
+} from "@/lib/actions/recruiter.action";
+
+export interface JobResponse {
+  id: string;
+  title: string;
+  description: string;
+  location?: string;
+  employmentType?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  skills?: string[];
+  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+}
 
 export default function RecruiterJobsPage() {
   const [jobs, setJobs] = useState<JobResponse[]>([]);
@@ -15,19 +26,14 @@ export default function RecruiterJobsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const loadJobs = async () => {
-    try {
-      setLoading(true);
-      const res = await getRecruiterJobs();
-      if (res.data) {
-        setJobs(res.data);
-      } else if (res.error) {
-        setError(res.error.message);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to load jobs");
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const res = await getRecruiterJobsAction();
+    if (res.data) {
+      setJobs(res.data);
+    } else if (res.error) {
+      setError(res.error);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -36,17 +42,13 @@ export default function RecruiterJobsPage() {
 
   const handleTogglePublish = async (job: JobResponse) => {
     const newStatus = job.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
-    try {
-      const res = await updateRecruiterJob(job.id, { status: newStatus });
-      if (res.data) {
-        setJobs((prev) =>
-          prev.map((j) => (j.id === job.id ? { ...j, status: newStatus } : j))
-        );
-      } else if (res.error) {
-        alert(res.error.message);
-      }
-    } catch (err: any) {
-      alert("Failed to update job status");
+    const res = await updateRecruiterJobAction(job.id, { status: newStatus });
+    if (res.data) {
+      setJobs((prev) =>
+        prev.map((j) => (j.id === job.id ? { ...j, status: newStatus } : j))
+      );
+    } else if (res.error) {
+      alert(res.error);
     }
   };
 
