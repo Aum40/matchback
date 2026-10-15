@@ -132,7 +132,7 @@ All of these get `@Roles(Role.USER)` (**CHANGED**: today they accept any logged-
 - If `jobId` is given, the bot gets the same `MatchContext` as the explanation endpoint.
 - It reuses `AiService` rules: never invent experience, never claim hiring odds.
 - Throttled with `@AiThrottle()`.
-- **U-Bot:** not integrated. There is no verified documentation or credentials. Do not add calls to any U-Bot endpoint until the team has verified official docs and access.
+- **U-Bot:** not integrated, and it can't be. Per the official `ubot-user-guide.pdf`, U-Bot is an end-user chat app with no API for third-party apps. MATCHBACK Bot runs on Claude via `AiService`.
 
 ## Mutual match rules (normative)
 

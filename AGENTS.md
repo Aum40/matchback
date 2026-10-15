@@ -10,7 +10,19 @@ MATCHBACK is a **two-sided "Tinder for Jobs"** with AI assistance.
 - Recruiters swipe on candidates for a specific job.
 - A **mutual match** happens only when both sides say LIKE.
 
-It is being built for the **AI Track of U-Hackathon 2026**. **Deadline: 16 Oct 2026, 14:00 (Thailand).** The deliverables are source code, a pitch deck, a write-up and a **working demo website**.
+It is being built for the **AI Track of U-Hackathon 2026**. **Deadline: 16 Oct 2026, 14:00 (Thailand).**
+
+### Submission (team1 Ecosystem Hub — official participant guide)
+
+Judges score **exactly the submitted version**, and they open three links. All three must work for anyone, in a private window:
+1. the **public GitHub repo**
+2. a **deployed demo website** that shows the real product, not just a landing page. Judges must be able to log in with demo accounts without signing up — see the deployment section in [docs/two-sided-plan.md](docs/two-sided-plan.md).
+3. the **pitch deck** as a Google Drive link set to *Anyone with the link can view*.
+
+Also:
+- Changed something after submitting? **Submit again** before the deadline.
+- The tech stack must list every partner tool **actually used**: U-Bot, Tokenomist, ElevenLabs, Avalanche. Never list one we didn't use.
+- This repo started from a **pre-existing starter template**, so tick *"pre-existing idea or codebase"* when submitting. Be honest.
 
 > **The two-sided scope is being built now.** Before writing code, read [docs/two-sided-plan.md](docs/two-sided-plan.md) (schema, authorization, **file ownership per developer**, implementation order) and [docs/api-contract.md](docs/api-contract.md) (the shared API contract). Sections below marked *(planned)* aren't on `main` yet.
 
@@ -48,7 +60,9 @@ It is being built for the **AI Track of U-Hackathon 2026**. **Deadline: 16 Oct 2
 - chat between users (the bot is the only chat)
 - un-matching or blocking
 - multi-company recruiters or team management
-- the **official U-Bot** integration — **blocked** until there are verified official docs, an endpoint and credentials. Never invent a U-Bot endpoint or claim we integrate with it.
+- **U-Bot integration inside the app.** Verified against the official `ubot-user-guide.pdf`: U-Bot (https://u.bot) is an end-user chat app (Casual / Professional / U-Code modes) with **no API for third-party apps**, so MATCHBACK cannot call it.
+  - The in-app assistant is **MATCHBACK Bot on Claude**. Never call it U-Bot, invent a U-Bot endpoint, or claim an integration.
+  - The team *may* use u.bot as a tool (drafting, U-Code prototypes). If it does, list U-Bot in the submission tech stack and say exactly what it was used for.
 - job scraping or real job feeds
 - custom ML training
 - email or push notification infrastructure
@@ -222,7 +236,7 @@ docs/two-sided-plan.md         ★ schema proposal, authz, file ownership, order
 - `POST /assistant/messages`. The server is stateless: the web sends the history (≤ 20 messages).
 - It goes through `AiService` with the same rules prompt (never invent facts, never claim hiring odds) and the same fallback when there is no key or AI errors.
 - An optional `jobId` gives the bot the same `MatchContext` as the explanation endpoint (no email/name).
-- It is **not U-Bot.** Don't name or describe it as the official hackathon U-Bot.
+- It is **not U-Bot.** U-Bot has no API (see section 2). Don't name it or describe it as the official hackathon U-Bot.
 
 ### AI (`api/src/infrastructure/ai/`)
 

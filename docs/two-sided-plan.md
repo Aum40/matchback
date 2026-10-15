@@ -179,12 +179,46 @@ Each developer works **only** in their own files. A change in someone else's fil
    - Dev 2: recruiter pages against `recruiter.api.ts` with typed stubs. Swap to real calls when Dev 3 PR 2 lands.
    - Dev 4: `/assistant/messages` + the floating bot, then compatibility-explanation improvements.
 3. **Dev 3 — PR 2:** recruiter endpoints + mutual-match creation in both swipes + `/matches`, with e2e tests for ownership (404), role (403) and the double-LIKE → single match path.
-4. **Integration (last ~4 h before the deadline):** walk the demo script end to end on a fresh `migrate reset` DB. Freeze features 2 h before 14:00.
+4. **Deployment (today, in parallel):** Dev 3 deploys API + DB, Dev 1 deploys the web (section 5b). The team lead registers on the Hub.
+5. **Integration (last ~4 h before the deadline):** walk the demo script end to end on a fresh `migrate reset` DB. Freeze features 2 h before 14:00.
 
 **Demo script:**
 1. As the candidate: log in → Discover → like `job-001` → no match yet (the recruiter hasn't liked).
 2. As the recruiter: open `job-001` deck → like that candidate → **It's a Match!**
 3. Both `/matches` pages show the match. Ask the bot "How do I prepare for this interview?"
+
+## 5b. Deployment and submission (required by the official participant guide)
+
+Judges must be able to open a **deployed demo website** and use the real product. A localhost demo does not count. **Deploy the current `main` today** so hosting problems show up early, then let every merge redeploy.
+
+| Piece | Suggested host | Owner | Notes |
+|---|---|---|---|
+| Postgres | Neon (free) | Dev 3 | `DATABASE_URL` for the API. The deploy runs `pnpm prisma migrate deploy && pnpm db:seed`. |
+| API | Render or Railway (Root Directory `api`) | Dev 3 | Build: `pnpm install --frozen-lockfile && pnpm build`. Start: `pnpm prisma migrate deploy && pnpm start:prod`. See the API settings below. |
+| Web | Vercel (Root Directory `web`) | Dev 1 | Set the Node version to 24 in project settings. See the web env vars below. |
+| Pitch deck | Google Drive | whole team | Sharing: *Anyone with the link can view* |
+| Hub registration | hub.team1.network | team lead | **Register on 15 Oct, as early as possible.** You can't submit until the organisers approve. Everyone's profile needs their full English name. |
+
+**API host settings:**
+- Set `NODE_VERSION=24.20.0` (the engines check rejects older versions).
+- `NODE_ENV=production` **requires** `BREVO_API_KEY` + `MAIL_FROM`. Get a free Brevo key and verified sender early, or the API won't boot.
+- Also set `FRONTEND_URL`, `ACCESS_TOKEN_SECRET`, `TRUST_PROXY`, `INTERNAL_API_SECRET`, `ANTHROPIC_API_KEY`, and the `SEED_*` demo passwords.
+
+**Web env vars:** `API_URL` (the API's public URL), `AUTH_SECRET`, `AUTH_URL` (the Vercel URL — login silently fails without it), `INTERNAL_API_SECRET` (same value as the API).
+
+**Judge access (must-have, Dev 1):** add "Try as candidate" / "Try as recruiter" buttons on `/login`.
+- They sign in with the seeded demo accounts. The credentials come from **server-side web env vars**; never hardcode them in the repo or ship them to the browser.
+- The demo accounts only hold demo data, and `pnpm db:seed` resets them. Fallback if there's no time: put the demo logins in the submission description.
+
+**Submission checklist** (from the guide):
+- [ ] Profiles show full names in English; registration approved (the Submit button is visible)
+- [ ] Name, short description (≤ 280 chars, lead with the problem), full description
+- [ ] Public repo link
+- [ ] Demo website + deck links tested in a private window
+- [ ] Screenshots
+- [ ] Tech stack lists the partner tools **actually used**
+- [ ] "Pre-existing idea or codebase" **ticked** (we started from a starter template)
+- [ ] **Submit early (a first version on the 16th morning), then re-submit** after each change before 14:00. Judges see only the submitted version.
 
 ## 6. Must not break
 
@@ -208,7 +242,11 @@ Each developer works **only** in their own files. A change in someone else's fil
 | A race when both sides like at the same moment | Write-then-read algorithm + unique constraint (contract §Mutual match rules). Covered by an e2e test. |
 | "Match" confused with a high score | The modal fires only on `SwipeResult.match`. Copy keeps "match score" (fit) separate from "It's a Match!" (mutual). |
 | AI cost/latency during the live demo | Bot + explanations are throttled and fall back to rule-based text. Test once with the real key before the demo. |
-| **U-Bot** official integration requested | **Blocked:** no verified docs, endpoint or credentials. The MATCHBACK Bot uses Claude via `AiService`. Revisit only if organizers provide official docs and access. |
+| **U-Bot** official integration requested | **Resolved — not possible.** The official `ubot-user-guide.pdf` describes an end-user chat app (u.bot) with no API for other apps. The MATCHBACK Bot uses Claude via `AiService`. If the team uses u.bot as a tool, list it in the submission tech stack honestly. |
+| Hub registration not approved in time | Register **on 15 Oct** as early as possible. Contact the organisers if it's still pending close to the deadline. |
+| No deployed demo, or the deploy breaks at the last minute | Deploy `main` today. Every merge redeploys. Freeze features at ~12:00 on 16 Oct and test all links in a private window. |
+| API won't boot in production | `NODE_ENV=production` requires Brevo mail env vars, and Node 24.15+ must be configured on the host. Both are covered in section 5b. |
+| Free-tier API sleeps, so the first judge request is slow | `apiFetch` already retries for ~60 s. Open the site yourself right before judging to wake it. |
 | `Job.company` (string) and `Company.name` drift | The seed and the recruiter job create both set them together. Remove the string after the hackathon. |
 
 ## 8. Verify the starter before starting
