@@ -37,7 +37,7 @@ Not present yet:
 
 ## 2. Proposed database changes: Developer 3 only
 
-The current Prisma schema is unchanged on this documentation branch. The following are proposed and require a migration. No other developer creates or edits migrations.
+**IMPLEMENTED** in migration `two_sided_matching` (Developer 3, PR 1), with one addition: `Company.isDemo` labels the seeded fictional companies. The migration backfills every pre-existing job to `PUBLISHED`. No other developer creates or edits migrations.
 
 ~~~prisma
 enum Role {

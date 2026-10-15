@@ -1,4 +1,5 @@
 import { Prisma } from '@/database/generated/prisma/client';
+import { Role } from '@/database/generated/prisma/enums';
 import { PrismaService } from '@/database/prisma.service';
 import { BcryptService } from '@/infrastructure/hash/bcrypt.service';
 import { ConflictException, Injectable } from '@nestjs/common';
@@ -68,7 +69,12 @@ export class UsersService {
     });
   }
 
-  async create(input: { name: string; email: string; password: string }) {
+  async create(input: {
+    name: string;
+    email: string;
+    password: string;
+    role: Role;
+  }) {
     const password = await this.bcryptService.hash(input.password);
 
     try {

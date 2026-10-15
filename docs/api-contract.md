@@ -6,8 +6,8 @@
 
 - The base URL is the server-only API_URL; the browser never calls the API directly.
 - Every endpoint requires Authorization: Bearer <accessToken> unless marked public.
-- USER is the existing candidate role. RECRUITER is proposed. ADMIN is reserved for administration and cannot be selected at sign-up.
-- Current controllers do not yet apply candidate @Roles(Role.USER) decorators. Where this contract says USER, that is the required proposed authorization, not a claim about the current implementation.
+- USER is the existing candidate role. RECRUITER is IMPLEMENTED (schema, sign-up and guards); recruiter endpoints are still proposed. ADMIN is reserved for administration and cannot be selected at sign-up.
+- Candidate controllers apply @Roles(Role.USER) (IMPLEMENTED): a RECRUITER or ADMIN token gets 403 on candidate routes.
 - Errors use { statusCode: number, message: string, code?: string }. Clients branch on stable code, never message text. Existing paths without a code must be normalized when they are next touched.
 - A resource owned by another user/company returns 404. A valid token with the wrong role returns 403.
 - SwipeDirection is "LIKE" | "SKIP"; the UI may label these LIKE and PASS/NOPE.
@@ -29,7 +29,7 @@ type WorkArrangement = "ONSITE" | "HYBRID" | "REMOTE";
 type EmploymentType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP";
 type SwipeDirection = "LIKE" | "SKIP";
 type ApplicationStatus = "INTERESTED" | "APPLIED" | "INTERVIEWING" | "REJECTED" | "OFFER";
-type JobStatus = "DRAFT" | "PUBLISHED" | "CLOSED"; // PROPOSED
+type JobStatus = "DRAFT" | "PUBLISHED" | "CLOSED"; // IMPLEMENTED in the schema; recruiter management routes PROPOSED
 type AiSource = "ai" | "fallback";
 ~~~
 
@@ -168,6 +168,7 @@ type Company = {
   name: string;
   description: string | null;
   website: string | null;
+  isDemo: boolean; // true for seeded fictional companies; show "Demo data"
 };
 
 type RecruiterJob = Job & {
@@ -219,7 +220,7 @@ Before a match, CandidateCard contains no email, surname/full name, photo, logo,
 
 ## Authentication and session endpoints
 
-### POST /auth/register - IMPLEMENTED request; recruiter role PROPOSED
+### POST /auth/register - IMPLEMENTED (including accountType)
 
 Current main accepts:
 
@@ -227,7 +228,7 @@ Current main accepts:
 { "name": "Ann Example", "email": "ann@example.com", "password": "StrongPass1!" }
 ~~~
 
-The proposed additive body is:
+The body may also include accountType:
 
 ~~~json
 {
@@ -238,7 +239,7 @@ The proposed additive body is:
 }
 ~~~
 
-accountType defaults to CANDIDATE, maps to role USER, and may also be RECRUITER. ADMIN is rejected. Name is trimmed and max 100 characters; email is normalized and max 254 characters; password is 8-72 printable ASCII characters with upper, lower, number, and special character. The current implementation does not accept accountType yet.
+accountType defaults to CANDIDATE, maps to role USER, and may also be RECRUITER. ADMIN is rejected. Name is trimmed and max 100 characters; email is normalized and max 254 characters; password is 8-72 printable ASCII characters with upper, lower, number, and special character. Implemented: an unknown or ADMIN accountType returns 400 (validation).
 
 Response:
 
@@ -257,7 +258,7 @@ Response:
 }
 ~~~
 
-Errors: 400 validation; 409 EMAIL_TAKEN. Google-created accounts always use USER in the proposed role model.
+Errors: 400 validation; 409 EMAIL_TAKEN. Google-created accounts always use USER.
 
 ### POST /auth/login - IMPLEMENTED, public
 
@@ -289,17 +290,17 @@ Returns Skill[], ordered by category and then name:
 [{ "id": "typescript", "name": "TypeScript", "category": "Programming" }]
 ~~~
 
-### GET /jobs - IMPLEMENTED today; visibility filtering PROPOSED
+### GET /jobs - IMPLEMENTED, including visibility filtering
 
-Returns Job[] using the current schema. The current implementation returns seeded rows. After the proposed publication field lands, it returns only PUBLISHED jobs; existing seeded demo rows are treated as PUBLISHED.
+Returns only PUBLISHED jobs. The two_sided_matching migration backfilled every pre-existing job (the seeded demo rows) to PUBLISHED.
 
-### GET /jobs/:id - IMPLEMENTED today; visibility filtering PROPOSED
+### GET /jobs/:id - IMPLEMENTED, including visibility filtering
 
 Returns one Job or 404 JOB_NOT_FOUND. After publication states land, draft/closed jobs are available through recruiter-owned management routes only; public candidates receive 404 for them.
 
 ## Candidate endpoints
 
-The following endpoints are implemented for authenticated users today. The required target authorization is @Roles(Role.USER); Developer 3 adds those decorators as part of the proposed role work.
+The following endpoints are implemented and require role USER (@Roles(Role.USER)); other roles get 403.
 
 ### GET /candidates/me - IMPLEMENTED
 
@@ -324,9 +325,9 @@ Replaces the profile and skill list transactionally. Body fields are optional in
 
 Validation: text max lengths are headline 150, education 2000, experience/projects 4000; at most 5 desired roles of 100 characters each; at most 50 skill ids; salary is a non-negative integer or null; arrangement is a valid enum. Unknown skill ids return 400 UNKNOWN_SKILL.
 
-### GET /jobs/discover - IMPLEMENTED today; candidate visibility filtering PROPOSED
+### GET /jobs/discover - IMPLEMENTED, USER only, PUBLISHED jobs only
 
-Returns DiscoverJob[] for jobs not yet swiped by the authenticated user, sorted by deterministic score. The proposed behavior requires USER and returns only status = PUBLISHED jobs.
+Returns DiscoverJob[] for jobs not yet swiped by the authenticated user, sorted by deterministic score. Requires USER and returns only status = PUBLISHED jobs.
 
 ### POST /jobs/:jobId/swipe - IMPLEMENTED today; mutual fields PROPOSED
 
@@ -348,7 +349,7 @@ Current response:
 
 SKIP returns application: null. A LIKE upserts JobInteraction and creates/preserves an INTERESTED application; it never submits an external application. The proposed response adds matchCreated, isMatched, and matchId as SwipeResult.
 
-### DELETE /jobs/swipes - IMPLEMENTED today; candidate role PROPOSED
+### DELETE /jobs/swipes - IMPLEMENTED, USER only
 
 Returns { "cleared": number }. It deletes only the authenticated user's candidate swipe rows. It does not delete applications or mutual matches.
 
@@ -552,7 +553,7 @@ The Bot can explain fit, requirements, unconfirmed information, resume improveme
 
 ## Job visibility and demo data
 
-The current Job schema has no publication field and current seeded rows are publicly returned. The proposed schema adds status: DRAFT | PUBLISHED | CLOSED through a future migration:
+IMPLEMENTED by migration `two_sided_matching`: Job has status: DRAFT | PUBLISHED | CLOSED (default DRAFT), plus companyId (owner). Pre-existing rows were backfilled to PUBLISHED:
 
 | Status | Recruiter owner | Candidate discovery/public browsing |
 |---|---|---|

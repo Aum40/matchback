@@ -12,7 +12,7 @@ import { App } from 'supertest/types';
  */
 describe('App (e2e)', () => {
   let app: INestApplication<App>;
-  let tokenFor: (role: 'USER' | 'ADMIN') => Promise<string>;
+  let tokenFor: (role: 'USER' | 'RECRUITER' | 'ADMIN') => Promise<string>;
 
   const prisma = {
     $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
@@ -108,6 +108,43 @@ describe('App (e2e)', () => {
       .set('Authorization', `Bearer ${await tokenFor('USER')}`)
       .expect(403);
     expect(response.body).toMatchObject({ code: 'ACCOUNT_SUSPENDED' });
+  });
+
+  // หน้าผู้สมัครทั้งหมดติด @Roles(Role.USER): recruiter ต้องได้ 403 ไม่ใช่ข้อมูลของผู้สมัคร
+  it.each([
+    ['GET', '/jobs/discover'],
+    ['GET', '/candidates/me'],
+    ['GET', '/applications'],
+    ['GET', '/jobs/job-001/match'],
+  ])(
+    'a RECRUITER token gets 403 on candidate route %s %s',
+    async (method, path) => {
+      const token = await tokenFor('RECRUITER');
+      const req = request(app.getHttpServer());
+      await (method === 'GET' ? req.get(path) : req.post(path))
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
+    },
+  );
+
+  it('sign-up never accepts ADMIN as an account type', () => {
+    return request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        name: 'Mallory',
+        email: 'mallory@example.com',
+        password: 'Passw0rd!',
+        accountType: 'ADMIN',
+      })
+      .expect(400);
+  });
+
+  it('public job listing only asks for PUBLISHED jobs', async () => {
+    prisma.job.findMany.mockClear();
+    await request(app.getHttpServer()).get('/jobs').expect(200);
+    expect(prisma.job.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: 'PUBLISHED' } }),
+    );
   });
 
   it('DTO validation rejects a weak password (ValidationPipe)', () => {

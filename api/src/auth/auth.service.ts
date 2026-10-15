@@ -7,6 +7,7 @@ import { GoogleAuthService } from '@/auth/google-auth.service';
 import { RefreshTokenService } from '@/auth/refresh-token.service';
 import { BcryptService } from '@/infrastructure/hash/bcrypt.service';
 import { MailService } from '@/infrastructure/mail/mail.service';
+import { Role } from '@/database/generated/prisma/enums';
 import { SessionUser, UsersService } from '@/users/users.service';
 import {
   ForbiddenException,
@@ -75,7 +76,12 @@ export class AuthService {
    * การยืนยันอีเมลทีหลัง ให้ตอบสำเร็จเหมือนกันทุกกรณีแล้วแจ้งเจ้าของทางอีเมลแทน
    */
   async register(dto: RegisterDto) {
-    const user = await this.usersService.create(dto);
+    const { accountType = 'CANDIDATE', ...input } = dto;
+    // CANDIDATE ใช้ role USER (ชื่อเดิม) — ADMIN ผ่าน DTO มาไม่ได้อยู่แล้ว (@IsIn)
+    const user = await this.usersService.create({
+      ...input,
+      role: accountType === 'RECRUITER' ? Role.RECRUITER : Role.USER,
+    });
 
     // เมลไม่ออกไม่ควรทำให้สมัครล้ม แถวใน users ถูกสร้างไปแล้ว
     try {

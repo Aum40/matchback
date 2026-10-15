@@ -1,5 +1,7 @@
 import { CurrentUser } from '@/common/decorator/current-user.decorator';
 import { Public } from '@/common/decorator/public.decorator';
+import { Roles } from '@/common/decorator/roles.decorator';
+import { Role } from '@/database/generated/prisma/enums';
 import { SwipeDto } from '@/jobs/dto/swipe.dto';
 import {
   Body,
@@ -25,12 +27,14 @@ export class JobsController {
   }
 
   // ต้องประกาศก่อน :id ไม่งั้น "discover" ถูกตีความเป็น id
+  @Roles(Role.USER)
   @Get('discover')
   discover(@CurrentUser('sub') userId: string) {
     return this.jobsService.discover(userId);
   }
 
   @HttpCode(HttpStatus.OK)
+  @Roles(Role.USER)
   @Delete('swipes')
   resetSwipes(@CurrentUser('sub') userId: string) {
     return this.jobsService.resetSwipes(userId);
@@ -43,6 +47,7 @@ export class JobsController {
   }
 
   @HttpCode(HttpStatus.OK)
+  @Roles(Role.USER)
   @Post(':id/swipe')
   swipe(
     @CurrentUser('sub') userId: string,

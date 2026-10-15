@@ -84,6 +84,37 @@ describe('AuthService', () => {
         service.register({ name: 'Ann', email: 'a@b.co', password: 'x' }),
       ).resolves.toMatchObject({ access_token: 'access' });
     });
+
+    it('ไม่ส่ง accountType = ผู้สมัคร (role USER) เข้ากันได้กับเว็บเวอร์ชันเดิม', async () => {
+      const { service, usersService } = setup();
+
+      await service.register({ name: 'Ann', email: 'a@b.co', password: 'x' });
+
+      expect(usersService.create).toHaveBeenCalledWith({
+        name: 'Ann',
+        email: 'a@b.co',
+        password: 'x',
+        role: 'USER',
+      });
+    });
+
+    it('accountType RECRUITER ได้ role RECRUITER และไม่ส่ง accountType ลง DB', async () => {
+      const { service, usersService } = setup();
+
+      await service.register({
+        name: 'Rin',
+        email: 'r@b.co',
+        password: 'x',
+        accountType: 'RECRUITER',
+      });
+
+      expect(usersService.create).toHaveBeenCalledWith({
+        name: 'Rin',
+        email: 'r@b.co',
+        password: 'x',
+        role: 'RECRUITER',
+      });
+    });
   });
 
   describe('login', () => {
