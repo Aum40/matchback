@@ -92,6 +92,8 @@ Always use pnpm, never `npx`. Run commands inside `api/` or `web/`.
 
 ## Deploying
 
+Step-by-step for Neon + Render + Vercel: **[docs/deploy.md](docs/deploy.md)**. The API uses the [`render.yaml`](render.yaml) Blueprint.
+
 - **API:** run `pnpm build && pnpm prisma migrate deploy && pnpm db:seed`, then `pnpm start:prod`. Set:
   - `NODE_ENV=production` and the Brevo mail settings (`BREVO_API_KEY` and `MAIL_FROM`, required in production)
   - `TRUST_PROXY` and `INTERNAL_API_SECRET`
