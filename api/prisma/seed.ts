@@ -3,20 +3,24 @@
  *   1. ทักษะ บริษัท และงานตัวอย่าง (seed-data.ts) — upsert ด้วย id คงที่ รันซ้ำได้
  *   2. แอดมินจาก SEED_ADMIN_* (ไม่ตั้งรหัส = ข้าม)
  *   3. ผู้สมัครเดโม 2 คน (SEED_DEMO_*) และ recruiter เดโม (SEED_RECRUITER_*) (ไม่ตั้งรหัส = ข้าม)
+ *   4. ผู้สมัครเดโมสำหรับ deck ของ recruiter (DEMO_CANDIDATE_POOL) — seed เสมอ ล็อกอินไม่ได้
  * ทุกครั้งที่รัน สถานะเดโมกลับไปเริ่มต้นใหม่: การปัด, งานที่บันทึก และ match ของบัญชีเดโมถูกล้าง
  * ห้ามใส่รหัสผ่านจริงลงในไฟล์นี้หรือ .env.example — อ่านจาก .env เท่านั้น
  */
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import z from 'zod';
 import { STRONG_PASSWORD } from '../src/common/decorator/strong-password.decorator';
 import { PrismaClient } from '../src/database/generated/prisma/client';
 import {
   COMPANIES,
   DEMO_CANDIDATE_2,
+  DEMO_CANDIDATE_POOL,
   DEMO_PROFILE,
   DEMO_RECRUITER,
+  DEMO_RECRUITER_PRESET_LIKES,
   JOBS,
   SKILLS,
 } from './seed-data';
@@ -133,7 +137,11 @@ async function seedUser(
   });
 }
 
-type CandidateSeed = Omit<typeof DEMO_PROFILE, 'skillIds'> & {
+type CandidateSeed = Omit<
+  typeof DEMO_PROFILE,
+  'skillIds' | 'preferredWorkArrangement'
+> & {
+  preferredWorkArrangement: 'ONSITE' | 'HYBRID' | 'REMOTE';
   skillIds: readonly string[];
   likedJobIds?: readonly string[];
 };
@@ -182,6 +190,8 @@ async function main() {
 
   try {
     await seedCatalog(prisma);
+    // id ของผู้สมัครเดโมที่ล็อกอินได้ ใช้ตั้งการปัดล่วงหน้าของ recruiter
+    const candidateIds = new Map<'demo' | 'demo2', string>();
 
     if (env.SEED_ADMIN_PASSWORD) {
       const admin = await seedUser(prisma, {
@@ -211,6 +221,7 @@ async function main() {
         role: 'USER',
       });
       await seedCandidate(prisma, demo2.id, DEMO_CANDIDATE_2);
+      candidateIds.set('demo', demo.id).set('demo2', demo2.id);
       console.log(`Seeded demo candidates ${demo.email}, ${demo2.email}`);
     } else {
       console.log('Skipped demo candidates (SEED_DEMO_PASSWORD not set)');
@@ -228,10 +239,40 @@ async function main() {
       await prisma.candidateInteraction.deleteMany({
         where: { recruiterId: recruiter.id },
       });
+      // ผู้สมัครฝั่งเดียวยังไม่เกิด match: match เกิดตอนผู้สมัครกด LIKE เองผ่าน API ตามปกติ
+      await prisma.candidateInteraction.createMany({
+        data: DEMO_RECRUITER_PRESET_LIKES.flatMap(({ candidate, jobId }) => {
+          const candidateId = candidateIds.get(candidate);
+          return candidateId
+            ? [
+                {
+                  jobId,
+                  candidateId,
+                  recruiterId: recruiter.id,
+                  direction: 'LIKE' as const,
+                },
+              ]
+            : [];
+        }),
+      });
       console.log(`Seeded demo recruiter ${recruiter.email}`);
     } else {
       console.log('Skipped demo recruiter (SEED_RECRUITER_PASSWORD not set)');
     }
+
+    for (const { email, ...candidate } of DEMO_CANDIDATE_POOL) {
+      const user = await seedUser(prisma, {
+        email,
+        // รหัสสุ่มทุกรอบและไม่เก็บไว้ที่ไหน = บัญชีนี้ล็อกอินไม่ได้ (ตามกฎ STRONG_PASSWORD เพื่อความสม่ำเสมอ)
+        password: `Aa1!${randomBytes(24).toString('base64url')}`,
+        name: candidate.name,
+        role: 'USER',
+      });
+      await seedCandidate(prisma, user.id, candidate);
+    }
+    console.log(
+      `Seeded ${DEMO_CANDIDATE_POOL.length} demo candidates for the recruiter deck`,
+    );
   } finally {
     await prisma.$disconnect();
   }
