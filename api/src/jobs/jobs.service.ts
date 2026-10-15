@@ -1,55 +1,26 @@
 import { CandidatesService } from '@/candidates/candidates.service';
-import { Prisma } from '@/database/generated/prisma/client';
 import { JobStatus, SwipeDirection } from '@/database/generated/prisma/enums';
 import { PrismaService } from '@/database/prisma.service';
-import { calculateMatch, MatchJob } from '@/matching/match-score';
+import { calculateMatch } from '@/matching/match-score';
+import { MatchesService } from '@/matches/matches.service';
+import {
+  JOB_SELECT,
+  JobResponse,
+  toJobResponse,
+  toMatchJob,
+} from './job.select';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
-export const JOB_SELECT = {
-  id: true,
-  title: true,
-  company: true,
-  location: true,
-  workArrangement: true,
-  employmentType: true,
-  salaryMin: true,
-  salaryMax: true,
-  description: true,
-  isDemo: true,
-  skills: {
-    select: { required: true, skill: { select: { id: true, name: true } } },
-    // required ขึ้นก่อน แล้วเรียงชื่อ: การ์ดแสดงไม่กี่ตัวแรก ต้องเป็นตัวที่สำคัญ
-    orderBy: [{ required: 'desc' }, { skill: { name: 'asc' } }],
-  },
-} satisfies Prisma.JobSelect;
-
-type JobRow = Prisma.JobGetPayload<{ select: typeof JOB_SELECT }>;
-
-/** รูปที่ส่งให้เว็บ: แผ่ skills ให้แบน ไม่ให้เว็บผูกกับโครงตาราง join */
-export function toJobResponse(job: JobRow) {
-  return {
-    ...job,
-    skills: job.skills.map(({ required, skill }) => ({ ...skill, required })),
-  };
-}
-
-export type JobResponse = ReturnType<typeof toJobResponse>;
-
-export function toMatchJob(job: JobResponse): MatchJob {
-  return {
-    title: job.title,
-    workArrangement: job.workArrangement,
-    salaryMin: job.salaryMin,
-    salaryMax: job.salaryMax,
-    skills: job.skills,
-  };
-}
+// ย้ายไป job.select.ts แล้ว re-export ไว้ ไฟล์อื่นที่ import จากที่นี่ใช้ต่อได้
+export { JOB_SELECT, toJobResponse, toMatchJob } from './job.select';
+export type { JobResponse } from './job.select';
 
 @Injectable()
 export class JobsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly candidatesService: CandidatesService,
+    private readonly matchesService: MatchesService,
   ) {}
 
   async findAll() {
@@ -139,7 +110,9 @@ export class JobsService {
         : []),
     ]);
 
-    return { jobId, direction, application: application ?? null };
+    // อ่านอีกฝั่งหลังการปัดนี้ commit แล้วเท่านั้น (ดู MatchesService.syncMatch)
+    const match = await this.matchesService.syncMatch(userId, jobId);
+    return { jobId, direction, ...match, application: application ?? null };
   }
 
   /** ล้างประวัติการปัดทั้งหมด (ปุ่ม "Start over" ตอนการ์ดหมด) — ไม่แตะ application */

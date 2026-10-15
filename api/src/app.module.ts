@@ -1,10 +1,13 @@
 import { AdminModule } from '@/admin/admin.module';
 import { ApplicationsModule } from '@/applications/applications.module';
 import { CandidatesModule } from '@/candidates/candidates.module';
+import { CompaniesModule } from '@/companies/companies.module';
 import { PrismaExceptionFilter } from '@/common/filters/prisma-exception.filter';
 import { AiModule } from '@/infrastructure/ai/ai.module';
 import { JobsModule } from '@/jobs/jobs.module';
+import { MatchesModule } from '@/matches/matches.module';
 import { MatchingModule } from '@/matching/matching.module';
+import { RecruiterModule } from '@/recruiter/recruiter.module';
 import { ResumeModule } from '@/resume/resume.module';
 import { AuthModule } from '@/auth/auth.module';
 import { AuthGuard } from '@/auth/guards/auth.guard';
@@ -47,6 +50,9 @@ import { HealthController } from './health.controller';
     MatchingModule,
     ResumeModule,
     ApplicationsModule,
+    CompaniesModule,
+    RecruiterModule,
+    MatchesModule,
   ],
   controllers: [HealthController],
   providers: [

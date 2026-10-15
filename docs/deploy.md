@@ -10,7 +10,7 @@ Order: **1 Neon → 2 Render → 3 Vercel → 4 connect the URLs → 5 seed → 
 
 ## 0. GitHub access (collaborators)
 
-The repo belongs to `wipabhorn-s`. Render and Vercel deploy automatically on every merge to `main` through their **GitHub App**. A collaborator can't install an app on someone else's personal repo, so:
+The repo belongs to `Aum40` (transferred from `wipabhorn-s`; old links redirect). Render and Vercel deploy automatically on every merge to `main` through their **GitHub App**. A collaborator can't install an app on someone else's personal repo, so:
 
 - When Render/Vercel asks for access, **request** the install for `matchback`. The repo owner gets a GitHub notification and approves it, choosing **Only select repositories → matchback**.
 - No time to wait? On Render, use **Public Git repository** with the repo URL. You then press **Manual Deploy** after each merge yourself.

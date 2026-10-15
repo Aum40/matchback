@@ -127,6 +127,43 @@ describe('App (e2e)', () => {
     },
   );
 
+  // ฝั่ง recruiter: ผู้สมัครเรียกได้ 403
+  it.each([
+    ['GET', '/recruiter/jobs'],
+    ['GET', '/companies/me'],
+    ['GET', '/recruiter/jobs/job-001/candidates'],
+  ])('a USER token gets 403 on recruiter route %s %s', async (method, path) => {
+    await request(app.getHttpServer())
+      .get(path)
+      .set('Authorization', `Bearer ${await tokenFor('USER')}`)
+      .expect(403);
+  });
+
+  it('matches are only for candidates and recruiters', async () => {
+    await request(app.getHttpServer()).get('/matches').expect(401);
+    await request(app.getHttpServer())
+      .get('/matches')
+      .set('Authorization', `Bearer ${await tokenFor('ADMIN')}`)
+      .expect(403);
+  });
+
+  it('there is no endpoint to create a match directly', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/matches')
+      .set('Authorization', `Bearer ${await tokenFor('USER')}`)
+      .send({ jobId: 'job-001' });
+    expect(response.status).toBe(404);
+  });
+
+  it('a recruiter swipe needs a valid candidate id and direction', async () => {
+    const token = await tokenFor('RECRUITER');
+    await request(app.getHttpServer())
+      .post('/recruiter/jobs/job-001/candidates/not-a-uuid/swipe')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ direction: 'LIKE' })
+      .expect(400);
+  });
+
   it('sign-up never accepts ADMIN as an account type', () => {
     return request(app.getHttpServer())
       .post('/auth/register')
