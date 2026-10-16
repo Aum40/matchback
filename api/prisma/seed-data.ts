@@ -382,3 +382,170 @@ export const DEMO_CANDIDATE_2 = {
   ] satisfies SkillId[],
   likedJobIds: ['job-001'],
 };
+
+/**
+ * งานที่ recruiter เดโมกด LIKE ผู้สมัครไว้ก่อนแล้ว
+ * กรรมการที่ "Try as candidate" (demo@) กด LIKE job-001 จะเห็น "It's a Match!" ทันทีโดยไม่ต้องรอใคร
+ * ผู้สมัครไม่รู้ล่วงหน้า: ไม่มี API ไหนบอกการตัดสินใจของบริษัทก่อน match
+ */
+export const DEMO_RECRUITER_PRESET_LIKES = [
+  { candidate: 'demo', jobId: 'job-001' },
+] as const;
+
+/**
+ * ผู้สมัครเดโมเพิ่มให้ deck ของ recruiter มีการ์ดให้ปัดพอ (กรรมการหลายคนลองต่อกันได้)
+ * ล็อกอินไม่ได้: seed ตั้งรหัสสุ่มที่ไม่มีใครรู้ — มีไว้ให้ถูกปัดเท่านั้น
+ * อีเมลใช้โดเมน example.com (สงวนไว้ ส่งจริงไม่ได้) เพราะ recruiter เห็นอีเมลหลัง match
+ * บางคน LIKE งานของ recruiter เดโมไว้แล้ว ฝั่ง recruiter ปัด LIKE แล้วบางใบเกิด match บางใบไม่ — เหมือนของจริง
+ */
+export const DEMO_CANDIDATE_POOL = [
+  {
+    email: 'demo-krit@example.com',
+    name: 'Krit Demo',
+    headline: 'Frontend developer with one year of React and Next.js',
+    education: 'B.Sc. Information Technology (2025), demo university',
+    experience:
+      'Junior frontend developer at a digital agency for 12 months: built marketing sites in Next.js and TypeScript.',
+    projects:
+      'Event ticketing dashboard in React with charts.\nOpen-source contributions to a UI component library.',
+    desiredRoles: ['Frontend Developer'],
+    preferredSalaryMin: 32000,
+    preferredWorkArrangement: 'HYBRID' as const,
+    skillIds: [
+      'html',
+      'css',
+      'javascript',
+      'typescript',
+      'react',
+      'nextjs',
+      'git',
+    ] satisfies SkillId[],
+    likedJobIds: ['job-001'],
+  },
+  {
+    email: 'demo-nida@example.com',
+    name: 'Nida Demo',
+    headline: 'UX designer who tests ideas with real users',
+    education: 'B.A. Communication Design (2026), demo university',
+    experience:
+      'UX intern at an e-commerce startup: ran 12 usability interviews and redesigned the checkout flow in Figma.',
+    projects:
+      'Mobile banking app redesign case study.\nAccessibility audit of a university website.',
+    desiredRoles: ['UX/UI Designer'],
+    preferredSalaryMin: 27000,
+    preferredWorkArrangement: 'ONSITE' as const,
+    skillIds: [
+      'figma',
+      'ux-research',
+      'communication',
+      'html',
+      'css',
+    ] satisfies SkillId[],
+    likedJobIds: ['job-009'],
+  },
+  {
+    email: 'demo-ton@example.com',
+    name: 'Ton Demo',
+    headline: 'Backend-minded graduate who likes APIs and databases',
+    education: 'B.Eng. Computer Engineering (2026), demo university',
+    experience:
+      'Backend intern: built REST endpoints in NestJS and wrote PostgreSQL migrations.',
+    projects:
+      'Library booking API with Docker and automated tests.\nDiscord bot for a student club.',
+    desiredRoles: ['Backend Developer'],
+    preferredSalaryMin: 30000,
+    preferredWorkArrangement: 'REMOTE' as const,
+    skillIds: [
+      'nodejs',
+      'nestjs',
+      'rest-api',
+      'postgresql',
+      'sql',
+      'docker',
+      'git',
+    ] satisfies SkillId[],
+    likedJobIds: [],
+  },
+  {
+    email: 'demo-fah@example.com',
+    name: 'Fah Demo',
+    headline: 'Data analyst turning spreadsheets into decisions',
+    education: 'B.Sc. Statistics (2025), demo university',
+    experience:
+      'Data analyst intern at a retail chain: built weekly sales dashboards in Power BI.',
+    projects:
+      'Customer churn analysis in Python and pandas.\nSurvey analysis for a student union.',
+    desiredRoles: ['Data Analyst'],
+    preferredSalaryMin: 28000,
+    preferredWorkArrangement: 'HYBRID' as const,
+    skillIds: [
+      'sql',
+      'excel',
+      'power-bi',
+      'statistics',
+      'python',
+      'pandas',
+      'communication',
+    ] satisfies SkillId[],
+    likedJobIds: [],
+  },
+  {
+    email: 'demo-beam@example.com',
+    name: 'Beam Demo',
+    headline: 'Self-taught web developer looking for a first job',
+    education: 'Online web development bootcamp (2026)',
+    experience:
+      'Freelance: built three small business websites with HTML, CSS and JavaScript.',
+    projects: 'Personal portfolio site.\nTo-do app in vanilla JavaScript.',
+    desiredRoles: ['Frontend Developer'],
+    preferredSalaryMin: 22000,
+    preferredWorkArrangement: 'ONSITE' as const,
+    skillIds: ['html', 'css', 'javascript', 'english'] satisfies SkillId[],
+    likedJobIds: [],
+  },
+  {
+    email: 'demo-mook@example.com',
+    name: 'Mook Demo',
+    headline: 'Full-stack graduate comfortable on both sides of the API',
+    education: 'B.Sc. Computer Science (2026), demo university',
+    experience:
+      'Full-stack intern: built React pages and the Node.js REST API behind them, with unit tests.',
+    projects:
+      'Clinic appointment system with React, Node.js and PostgreSQL.\nHackathon finalist: food waste tracker.',
+    desiredRoles: ['Full-Stack Developer', 'Frontend Developer'],
+    preferredSalaryMin: 33000,
+    preferredWorkArrangement: 'HYBRID' as const,
+    skillIds: [
+      'javascript',
+      'typescript',
+      'react',
+      'nodejs',
+      'rest-api',
+      'postgresql',
+      'testing',
+    ] satisfies SkillId[],
+    likedJobIds: [],
+  },
+  {
+    email: 'demo-pim@example.com',
+    name: 'Pim Demo',
+    headline: 'Designer who also ships the frontend',
+    education: 'B.F.A. Digital Media (2025), demo university',
+    experience:
+      'Product designer at a small studio: designed in Figma and built prototypes in React.',
+    projects:
+      'Design system for a nonprofit website.\nInteractive museum guide prototype.',
+    desiredRoles: ['UX/UI Designer', 'Frontend Developer'],
+    preferredSalaryMin: 30000,
+    preferredWorkArrangement: 'HYBRID' as const,
+    skillIds: [
+      'figma',
+      'ux-research',
+      'html',
+      'css',
+      'javascript',
+      'react',
+    ] satisfies SkillId[],
+    likedJobIds: ['job-001', 'job-009'],
+  },
+];

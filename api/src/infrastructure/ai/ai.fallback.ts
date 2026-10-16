@@ -1,4 +1,6 @@
 import type {
+  AssistantContext,
+  AssistantReply,
   MatchContext,
   MatchExplanation,
   ResumeCoaching,
@@ -89,6 +91,41 @@ export function fallbackCoaching({ match }: MatchContext): ResumeCoaching {
         (skill) =>
           `Do not claim ${skill.name} unless you have real experience with it.`,
       ),
+    source: 'fallback',
+  };
+}
+
+/** Bot ตอบไม่ได้: สรุปจากโปรไฟล์/งานที่มีอยู่แล้ว ไม่ตอบคำถามแบบเดา */
+export function fallbackAssistantReply({
+  candidate,
+  job,
+  match,
+}: AssistantContext): AssistantReply {
+  const intro =
+    'The AI assistant is not available right now, so here is a summary based only on your profile';
+
+  if (job && match) {
+    const explanation = fallbackExplanation({ candidate, job, match });
+    return {
+      reply: [
+        `${intro} and this job.`,
+        explanation.summary,
+        ...explanation.strengths,
+        ...explanation.gaps,
+        `Next steps: ${explanation.nextSteps.join(' ')}`,
+      ].join('\n\n'),
+      source: 'fallback',
+    };
+  }
+
+  return {
+    reply: [
+      `${intro}.`,
+      candidate.skills.length > 0
+        ? `Your profile lists: ${candidate.skills.join(', ')}.`
+        : 'Your profile has no skills listed yet. Add them on the Profile page so matches can be calculated.',
+      'Open a job and ask from there to get advice on how well it fits you.',
+    ].join('\n\n'),
     source: 'fallback',
   };
 }

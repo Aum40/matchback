@@ -2,8 +2,10 @@ import { calculateMatch } from '@/matching/match-score';
 import {
   COMPANIES,
   DEMO_CANDIDATE_2,
+  DEMO_CANDIDATE_POOL,
   DEMO_PROFILE,
   DEMO_RECRUITER,
+  DEMO_RECRUITER_PRESET_LIKES,
   JOBS,
   SKILLS,
 } from '../../prisma/seed-data';
@@ -103,5 +105,33 @@ describe('seed data', () => {
     expect(DEMO_CANDIDATE_2.skillIds.every((id) => skillIds.has(id))).toBe(
       true,
     );
+  });
+
+  // deck ของ recruiter ต้องมีการ์ดพอให้กรรมการหลายคนลอง และข้อมูลต้องถูกต้องไม่งั้น seed ล้ม
+  it('seeds a pool of valid, clearly fictional candidates', () => {
+    expect(DEMO_CANDIDATE_POOL.length).toBeGreaterThanOrEqual(5);
+    const emails = DEMO_CANDIDATE_POOL.map((candidate) => candidate.email);
+    expect(new Set(emails).size).toBe(emails.length);
+    const jobIds = new Set(JOBS.map((job) => job.id));
+    for (const candidate of DEMO_CANDIDATE_POOL) {
+      // example.com สงวนไว้ ส่งอีเมลจริงไม่ได้ และไม่ชนกับบัญชีเดโมที่ล็อกอินได้
+      expect(candidate.email.endsWith('@example.com')).toBe(true);
+      expect(candidate.name.endsWith(' Demo')).toBe(true);
+      expect(candidate.skillIds.length).toBeGreaterThan(0);
+      expect(candidate.skillIds.every((id) => skillIds.has(id))).toBe(true);
+      expect(new Set(candidate.skillIds).size).toBe(candidate.skillIds.length);
+      expect(candidate.likedJobIds.every((id) => jobIds.has(id))).toBe(true);
+    }
+  });
+
+  // กด LIKE ล่วงหน้าได้เฉพาะงานของบริษัท recruiter เดโมเอง (เหมือนกฎของ API)
+  it('presets recruiter likes only on the demo recruiter company jobs', () => {
+    const recruiterCompany = COMPANIES.find(
+      (company) => company.id === DEMO_RECRUITER.companyId,
+    );
+    for (const { jobId } of DEMO_RECRUITER_PRESET_LIKES) {
+      const job = JOBS.find((item) => item.id === jobId);
+      expect(job?.company).toBe(recruiterCompany?.name);
+    }
   });
 });

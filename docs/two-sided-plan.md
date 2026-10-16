@@ -174,9 +174,11 @@ See [docs/team-ownership.md](team-ownership.md). It is the only ownership source
 
 ## 7. Demo script
 
-1. Candidate signs in, opens a fictional job labeled Demo data, and LIKEs job-001. No mutual match exists yet.
-2. Recruiter signs in, opens a PUBLISHED owned job, and LIKEs the same candidate for job-001.
-3. The API returns matchCreated true, isMatched true, and matchId. Both sides can open the mutual match.
+The seed prepares both directions, and `pnpm db:seed` resets them:
+
+1. Candidate (`demo@`) signs in. job-001 is the first Discover card. The demo recruiter already LIKEd this candidate for job-001, so the candidate's LIKE returns matchCreated true ("It's a Match!"). A LIKE on any other job creates no match.
+2. Recruiter signs in and opens job-001's deck (Ploy = `demo2@` plus 7 fictional pool candidates that can't log in). LIKE on Ploy, Krit or Pim (they already LIKEd job-001) creates a match. LIKE on anyone else doesn't, because one-sided interest is never revealed.
+3. Each match response carries matchCreated true, isMatched true, and matchId. Both sides can open the mutual match.
 4. Retry the same swipe to demonstrate idempotency: matchCreated is false, isMatched remains true, and the same matchId is returned.
 5. Ask MATCHBACK Bot for evidence-based interview preparation. Gemini is called only by the NestJS backend; if it is unavailable or produces invalid output, show the deterministic fallback.
 

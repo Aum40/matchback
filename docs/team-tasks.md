@@ -14,10 +14,12 @@
 | หน้าเว็บฝั่งผู้สมัคร (discover, job detail, profile, saved, applications) | ✅ มีแล้ว แต่ **ยังไม่รู้จัก match** |
 | หน้าเว็บฝั่ง recruiter | ❌ ยังไม่มี |
 | Sign-up เลือกประเภทบัญชี | ❌ API รับแล้ว ฟอร์มยังไม่ส่ง |
-| MATCHBACK Bot (`POST /assistant/messages`) | ❌ มีแค่ contract |
+| MATCHBACK Bot (`POST /assistant/messages` + `AssistantLauncher`) | ✅ API + UI เสร็จ และ mount ใน layout แล้ว |
 | Deploy (Railway + Vercel) | ❌ Aum ทำ |
 
-บัญชีเดโมหลัง `pnpm db:seed`: `demo@matchback.dev`, `demo2@matchback.dev` (ผู้สมัคร, รหัส `SEED_DEMO_PASSWORD`), `recruiter@matchback.dev` (รหัส `SEED_RECRUITER_PASSWORD`, เป็นเจ้าของ job-001 กับ job-009) — demo2 กด LIKE job-001 ไว้แล้ว recruiter กด LIKE demo2 ที่ job-001 = เกิด match ทันที
+บัญชีเดโมหลัง `pnpm db:seed`: `demo@matchback.dev`, `demo2@matchback.dev` (ผู้สมัคร, รหัส `SEED_DEMO_PASSWORD`), `recruiter@matchback.dev` (รหัส `SEED_RECRUITER_PASSWORD`, เป็นเจ้าของ job-001 กับ job-009) — สิ่งที่ seed ตั้งไว้ให้เดโม (รัน `pnpm db:seed` ซ้ำ = รีเซ็ตกลับแบบนี้):
+- **Try as candidate** (`demo@`): recruiter กด LIKE demo ไว้ที่ job-001 แล้ว → demo กด LIKE job-001 (การ์ดใบแรกใน Discover) = "It's a Match!" ทันที
+- **Try as recruiter**: deck ของ job-001 มี 8 คน (Ploy = demo2 + ผู้สมัครเดโม 7 คน `demo-*@example.com` ที่ล็อกอินไม่ได้) — Ploy, Krit, Pim กด LIKE job-001 ไว้แล้ว recruiter LIKE = match ส่วนคนอื่นไม่เกิด match เหมือนของจริง · job-009 มี Nida, Pim ที่ LIKE ไว้
 
 ## ไทม์ไลน์
 
@@ -100,7 +102,8 @@ P0 — PR ที่สอง:
    - ปุ่มเรียก Server Action ที่ signIn ด้วยค่าจาก env ฝั่ง server — รหัสห้ามหลุดไปเบราว์เซอร์และห้าม hardcode
 
 P1: ขัดเกลา UX discover/match บนมือถือ, เทสต์ Vitest ของ SwipeStack/MatchModal
-คำขอจาก Dev 4 ให้เพิ่มบรรทัด mount Bot ใน app/(app)/layout.tsx — ฉัน (Dev 1) เป็นคนใส่ให้
+Bot ของ Dev 4 ถูก mount ใน app/(app)/layout.tsx แล้ว (บรรทัด <AssistantLauncher /> หลัง </main>) — ไม่ต้องใส่ซ้ำ
+  ตอนแก้ layout ให้เก็บบรรทัดนี้ไว้ ถ้า merge conflict ให้เก็บทั้งสองฝั่ง
 ห้ามแตะ: หน้า/คอมโพเนนต์ recruiter, SignupForm, AiPanels.tsx, api/**, api.type.ts
 ```
 
@@ -185,7 +188,7 @@ P0:
    - unit test: validation, fallback, context ไม่มี email
 2. เว็บ: ปุ่มลอยเปิดแชต (components/features/assistant/), ประวัติเก็บใน state ฝั่ง client, ส่งผ่าน Server Action
    แสดงป้าย "fallback" แบบสุภาพเมื่อ source = "fallback" · แสดงเฉพาะ role USER
-   เสร็จแล้วเขียนบรรทัด mount ที่ต้องเพิ่มใน app/(app)/layout.tsx ส่งให้ Dev 1 ใส่ (ห้ามแก้ layout เอง)
+   (เสร็จแล้ว: mount ใน app/(app)/layout.tsx แล้ว โดยแจ้ง Dev 1)
 P1: ส่ง jobId อัตโนมัติเมื่อเปิด Bot จากหน้า /jobs/[id], ปุ่มคำถามแนะนำ 3 ปุ่ม
 ห้ามแตะ: สูตรคะแนนใน api/src/matching/match-score.ts, prisma/**, match/recruiter API, layout, MatchModal
 ```
@@ -223,7 +226,7 @@ P1: ส่ง jobId อัตโนมัติเมื่อเปิด Bot �
 
 1. Dev 1: SwipeStack + MatchModal (ด่วน) → Dev 2 pull main แล้วทำ deck ต่อ
 2. Dev 2: layout recruiter / signup / company / jobs ไม่ชนใคร merge ได้เรื่อย ๆ
-3. Dev 4: API Bot → UI Bot → Dev 1 ใส่บรรทัด mount
+3. Dev 4: API Bot → UI Bot → mount ใน layout ✅ เสร็จแล้ว
 4. Dev 3: รับคำขอ contract ตลอด, ทดสอบ demo script บนเว็บจริงหลัง merge ทุกก้อน
 
 | ถ้า AI ของคุณอยาก… | ให้ทำแบบนี้แทน |
