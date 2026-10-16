@@ -31,12 +31,19 @@ export default function ApplicationCard({
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const matchState = application as Application & {
+    isMatch?: boolean;
+    matched?: boolean;
+    job: Application["job"] & { isMatch?: boolean };
+  };
+  const applicationStatus: string = application.status;
+
   // 💡 เช็คว่าฝั่ง Employer กดสนใจตอบกลับมาหรือยัง (รองรับทั้ง isMatch, matched หรือ status MATCHED)
   const isEmployerInterested =
-    Boolean((application as any).isMatch) ||
-    Boolean((application as any).matched) ||
-    (application as any).status === "MATCHED" ||
-    Boolean((application as any).job?.isMatch);
+    Boolean(matchState.isMatch) ||
+    Boolean(matchState.matched) ||
+    applicationStatus === "MATCHED" ||
+    Boolean(matchState.job?.isMatch);
 
   const save = (patch: Parameters<typeof updateApplicationAction>[1], done: string) =>
     startTransition(async () => {

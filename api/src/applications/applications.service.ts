@@ -28,7 +28,14 @@ export class ApplicationsService {
     // 💡 1. ดึงรายการ Job ID ที่ Recruiter เคยปัดสนใจ (LIKE) Candidate คนนี้ไว้
     let likedJobIds = new Set<string>();
     try {
-      const prismaAny = this.prisma as any;
+      const prismaAny = this.prisma as unknown as {
+        swipe?: {
+          findMany(args: {
+            where: { candidateId: string; action: string };
+            select: { jobId: true };
+          }): Promise<{ jobId: string }[]>;
+        };
+      };
       if (prismaAny.swipe) {
         const recruiterLikes = await prismaAny.swipe.findMany({
           where: {

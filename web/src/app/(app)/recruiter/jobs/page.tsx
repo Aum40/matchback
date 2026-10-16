@@ -8,36 +8,24 @@ import {
   updateRecruiterJobAction,
 } from "@/lib/actions/recruiter.action";
 
-export interface JobResponse {
-  id: string;
-  title: string;
-  description: string;
-  location?: string;
-  employmentType?: string;
-  salaryMin?: number;
-  salaryMax?: number;
-  skills?: string[];
-  status: "DRAFT" | "PUBLISHED" | "CLOSED";
-}
+type JobResponse = import("@/lib/api/api.type").RecruiterJob;
 
 export default function RecruiterJobsPage() {
   const [jobs, setJobs] = useState<JobResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadJobs = async () => {
-    setLoading(true);
-    const res = await getRecruiterJobsAction();
-    if (res.data) {
-      setJobs(res.data);
-    } else if (res.error) {
-      setError(res.error);
-    }
-    setLoading(false);
-  };
-
   useEffect(() => {
-    loadJobs();
+    let cancelled = false;
+    async function loadJobs() {
+      const res = await getRecruiterJobsAction();
+      if (cancelled) return;
+      if (res.data) setJobs(res.data);
+      else if (res.error) setError(res.error);
+      setLoading(false);
+    }
+    void loadJobs();
+    return () => { cancelled = true; };
   }, []);
 
   const handleTogglePublish = async (job: JobResponse) => {
@@ -66,7 +54,7 @@ export default function RecruiterJobsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Job Postings</h1>
           <p className="text-muted-foreground">
-            Manage your company's open positions and candidates.
+            Manage your company&apos;s open positions and candidates.
           </p>
         </div>
         <Link href="/recruiter/jobs/new" className={buttonVariants()}>

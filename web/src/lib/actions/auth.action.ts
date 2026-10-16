@@ -37,7 +37,7 @@ export async function loginAction(
 
   // ล็อกอินเสร็จ เช็กจาก Session ว่าเป็นใคร
   const session = await auth();
-  const role = session?.user?.role || (session?.user as any)?.accountType;
+  const role = session?.user?.role || (session?.user as (NonNullable<typeof session>["user"] & { accountType?: string }) | undefined)?.accountType;
   
   if (role === "RECRUITER") {
     redirect("/recruiter/jobs");

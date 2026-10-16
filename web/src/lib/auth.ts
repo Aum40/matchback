@@ -1,6 +1,6 @@
 import { ApiError } from "@/lib/api/api-error";
 import { AuthApi } from "@/lib/api/auth.api";
-import type { LoginResponse, Role } from "@/lib/api/api.type";
+import type { LoginResponse, Role, UserResponse } from "@/lib/api/api.type";
 import { env, googleEnabled } from "@/lib/env";
 import { loginSchema, registerSchema } from "@/lib/schemas/auth.schema";
 import { SESSION_MAX_AGE, storeTokens } from "@/lib/session-token";
@@ -94,13 +94,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, account }) {
       if (account?.provider === "google" && account.id_token) {
         const result = await AuthApi.loginWithGoogle(account.id_token);
-        token.role = (result.user as any).accountType || (result.user as any).role;
+        token.role = (result.user as UserResponse & { accountType?: Role }).accountType || (result.user as UserResponse & { accountType?: Role }).role;
         return storeTokens(token, result, result.user);
       }
 
       if (user) {
         storeTokens(token, user, user);
-        token.role = (user as any).accountType || (user as any).role;
+        token.role = (user as User & { accountType?: Role }).accountType || (user as User & { accountType?: Role }).role;
       }
 
       return token;
@@ -115,7 +115,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.role = (token.role || token.accountType) as Role;
       
       // (ทางเลือก) เพิ่ม accountType เข้าไปตรงๆ ด้วยเผื่อ component อื่นเรียกใช้
-      (session.user as any).accountType = token.accountType;
+      (session.user as User & { accountType?: unknown }).accountType = token.accountType;
       
       session.user.access_token = token.access_token as string;
       return session;

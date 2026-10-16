@@ -6,10 +6,10 @@ export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getDashboardOverview() {
-    const prismaAny = this.prisma as any;
-
     // 1. ทักษะที่ฝั่ง Employer ต้องการมากที่สุด (Top Employer Required Skills)
-    const topEmployerSkills = await prismaAny.$queryRaw`
+    const topEmployerSkills = await this.prisma.$queryRaw<
+      { id: string; name: string; count: number }[]
+    >`
       SELECT s.id, s.name, COUNT(js.job_id)::int as count
       FROM skills s
       JOIN job_skills js ON s.id = js.skill_id
@@ -19,7 +19,9 @@ export class AnalyticsService {
     `;
 
     // 2. ทักษะที่ฝั่ง Candidates มีมากที่สุด (Top Candidate Skills)
-    const topCandidateSkills = await prismaAny.$queryRaw`
+    const topCandidateSkills = await this.prisma.$queryRaw<
+      { id: string; name: string; count: number }[]
+    >`
       SELECT s.id, s.name, COUNT(cs.user_id)::int as count
       FROM skills s
       JOIN candidate_skills cs ON s.id = cs.skill_id
@@ -34,10 +36,11 @@ export class AnalyticsService {
       _count: { _all: true },
     });
 
-    const candidateWorkArrangements = await prismaAny.candidateProfile.groupBy({
-      by: ['preferredWorkArrangement'],
-      _count: { _all: true },
-    });
+    const candidateWorkArrangements =
+      await this.prisma.candidateProfile.groupBy({
+        by: ['preferredWorkArrangement'],
+        _count: { _all: true },
+      });
 
     // 4. ช่วงเงินเดือน (Salary Statistics)
     const jobSalary = await this.prisma.job.aggregate({
@@ -46,7 +49,7 @@ export class AnalyticsService {
       _max: { salaryMax: true },
     });
 
-    const candidateSalary = await prismaAny.candidateProfile.aggregate({
+    const candidateSalary = await this.prisma.candidateProfile.aggregate({
       _avg: { preferredSalaryMin: true },
       _min: { preferredSalaryMin: true },
       _max: { preferredSalaryMin: true },
@@ -54,7 +57,7 @@ export class AnalyticsService {
 
     // 5. จำนวนรวมทั้งหมด
     const totalJobs = await this.prisma.job.count();
-    const totalCandidates = await prismaAny.candidateProfile.count();
+    const totalCandidates = await this.prisma.candidateProfile.count();
 
     return {
       summary: {
@@ -62,7 +65,9 @@ export class AnalyticsService {
         totalCandidates,
         avgJobSalaryMin: Math.round(jobSalary._avg.salaryMin || 0),
         avgJobSalaryMax: Math.round(jobSalary._avg.salaryMax || 0),
-        avgCandidatePreferredSalary: Math.round(candidateSalary._avg.preferredSalaryMin || 0),
+        avgCandidatePreferredSalary: Math.round(
+          candidateSalary._avg.preferredSalaryMin || 0,
+        ),
       },
       skills: {
         employerDemand: topEmployerSkills,

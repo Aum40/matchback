@@ -41,7 +41,7 @@ export default function CompanyProfilePage() {
             size: res.data.size || "",
           });
         }
-      } catch (err) {
+      } catch {
         // หากยังไม่มีบริษัท ไม่ต้องแสดง error
       } finally {
         setLoading(false);

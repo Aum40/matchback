@@ -1,6 +1,6 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data?: T;
   error?: {
     statusCode: number;
@@ -38,11 +38,11 @@ export async function apiFetch<T>(
     }
 
     return { data: result as T };
-  } catch (err: any) {
+  } catch (err) {
     return {
       error: {
         statusCode: 500,
-        message: err.message || "Network error",
+        message: err instanceof Error ? err.message : "Network error",
       },
     };
   }

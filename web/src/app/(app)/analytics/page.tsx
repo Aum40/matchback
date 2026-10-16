@@ -38,7 +38,7 @@ const MOCK_DATA = {
 };
 
 export default function AnalyticsDashboardPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<typeof MOCK_DATA | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,10 +56,10 @@ export default function AnalyticsDashboardPage() {
   // 💡 3. นำข้อมูล Demo มาแปลงรูปแบบเข้ากราฟ
   const skillMap: Record<string, { name: string; demand: number; supply: number }> = {};
   
-  data.skills.employerDemand.forEach((item: any) => {
+  data.skills.employerDemand.forEach((item) => {
     skillMap[item.name] = { name: item.name, demand: item.count, supply: 0 };
   });
-  data.skills.candidateSupply.forEach((item: any) => {
+  data.skills.candidateSupply.forEach((item) => {
     if (skillMap[item.name]) {
       skillMap[item.name].supply = item.count;
     } else {

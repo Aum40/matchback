@@ -63,7 +63,7 @@ export default function CreateJobPage() {
     setError(null);
 
     // หากพิมพ์ skill ค้างไว้ในช่องแต่ยังไม่ได้กด Enter ให้ดึงเข้าไปใน array ให้เอง
-    let finalSkills = [...formData.skills];
+    const finalSkills = [...formData.skills];
     if (formData.skillInput.trim() && !finalSkills.includes(formData.skillInput.trim())) {
       finalSkills.push(formData.skillInput.trim());
     }

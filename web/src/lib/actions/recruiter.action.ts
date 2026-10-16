@@ -2,6 +2,7 @@
 
 import { apiFetch } from "@/lib/api/api-fetch";
 import { auth } from "@/lib/auth";
+import type { CandidateCard, Company, RecruiterJob, SwipeResult } from "@/lib/api/api.type";
 
 export interface CompanyInput {
   name: string;
@@ -27,14 +28,7 @@ export interface JobInput {
 /** ฟังก์ชันช่วยดึง accessToken จาก NextAuth Session */
 async function getAuthToken() {
   const session = await auth();
-  const s = session as any;
-  const token =
-    s?.user?.access_token ||
-    s?.user?.accessToken ||
-    s?.accessToken ||
-    s?.token;
-
-  return token as string | undefined;
+  return session?.user.access_token;
 }
 
 /** แปลง skills จาก string[] เป็น [{ id: skill, required: true }] ตาม DTO ของ Backend */
@@ -61,10 +55,10 @@ function formatSkills(skills?: string[]) {
 export async function getCompanyAction() {
   try {
     const token = await getAuthToken();
-    const data = await apiFetch<any>("/companies/me", { token });
+    const data = await apiFetch<Company & { location?: string; industry?: string; size?: string }>("/companies/me", { token });
     return { data };
-  } catch (err: any) {
-    return { error: err.message || "Failed to fetch company profile" };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to fetch company profile" };
   }
 }
 
@@ -72,14 +66,14 @@ export async function getCompanyAction() {
 export async function updateCompanyAction(input: CompanyInput) {
   try {
     const token = await getAuthToken();
-    const data = await apiFetch<any>("/companies/me", {
+    const data = await apiFetch<Company>("/companies/me", {
       method: "PUT",
       body: input as unknown as Record<string, unknown>,
       token,
     });
     return { data };
-  } catch (err: any) {
-    return { error: err.message || "Failed to save company profile" };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to save company profile" };
   }
 }
 
@@ -87,10 +81,10 @@ export async function updateCompanyAction(input: CompanyInput) {
 export async function getRecruiterJobsAction() {
   try {
     const token = await getAuthToken();
-    const data = await apiFetch<any[]>("/recruiter/jobs", { token });
+    const data = await apiFetch<RecruiterJob[]>("/recruiter/jobs", { token });
     return { data };
-  } catch (err: any) {
-    return { error: err.message || "Failed to fetch jobs" };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to fetch jobs" };
   }
 }
 
@@ -103,15 +97,15 @@ export async function createRecruiterJobAction(input: JobInput) {
       skills: formatSkills(input.skills),
     };
 
-    const data = await apiFetch<any>("/recruiter/jobs", {
+    const data = await apiFetch<RecruiterJob>("/recruiter/jobs", {
       method: "POST",
       body: payload as unknown as Record<string, unknown>,
       token,
     });
     return { data };
-  } catch (err: any) {
+  } catch (err) {
     console.error("❌ [createRecruiterJobAction Error]:", err);
-    return { error: err.message || "Failed to create job" };
+    return { error: err instanceof Error ? err.message : "Failed to create job" };
   }
 }
 
@@ -127,14 +121,14 @@ export async function updateRecruiterJobAction(
       ...(input.skills ? { skills: formatSkills(input.skills) } : {}),
     };
 
-    const data = await apiFetch<any>(`/recruiter/jobs/${id}`, {
+    const data = await apiFetch<RecruiterJob>(`/recruiter/jobs/${id}`, {
       method: "PATCH",
       body: payload as unknown as Record<string, unknown>,
       token,
     });
     return { data };
-  } catch (err: any) {
-    return { error: err.message || "Failed to update job" };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to update job" };
   }
 }
 
@@ -142,12 +136,12 @@ export async function updateRecruiterJobAction(
 export async function getCandidateDeckAction(jobId: string) {
   try {
     const token = await getAuthToken();
-    const data = await apiFetch<any[]>(`/recruiter/jobs/${jobId}/candidates`, {
+    const data = await apiFetch<CandidateCard[]>(`/recruiter/jobs/${jobId}/candidates`, {
       token,
     });
     return { data };
-  } catch (err: any) {
-    return { error: err.message || "Failed to fetch candidates" };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to fetch candidates" };
   }
 }
 
@@ -159,7 +153,7 @@ export async function swipeCandidateAction(
 ) {
   try {
     const token = await getAuthToken();
-    const data = await apiFetch<any>(
+    const data = await apiFetch<SwipeResult & { matched?: boolean }>(
       `/recruiter/jobs/${jobId}/candidates/${candidateId}/swipe`,
       {
         method: "POST",
@@ -168,7 +162,7 @@ export async function swipeCandidateAction(
       }
     );
     return { data };
-  } catch (err: any) {
-    return { error: err.message || "Failed to record swipe" };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to record swipe" };
   }
 }

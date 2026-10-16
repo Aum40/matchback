@@ -11,11 +11,14 @@ import {
 interface CandidateCard {
   id?: string;
   userId?: string;
-  user?: { id?: string; firstName?: string; lastName?: string };
+  user?: { id?: string; firstName?: string; lastName?: string; user_id?: string };
   firstName?: string;
-  headline?: string;
+  headline?: string | null;
   bio?: string;
-  skills?: any[];
+  candidateId?: string;
+  candidate_id?: string;
+  user_id?: string;
+  skills?: (string | { id?: string; name?: string; skillId?: string; skill?: { name?: string } })[];
   matchScore?: number;
 }
 
@@ -57,11 +60,11 @@ export default function CandidateDeckPage({
     const candidateId =
       currentCandidate.id ??
       currentCandidate.userId ??
-      (currentCandidate as any).user_id ??
-      (currentCandidate as any).candidateId ??
-      (currentCandidate as any).candidate_id ??
+      currentCandidate.user_id ??
+      currentCandidate.candidateId ??
+      currentCandidate.candidate_id ??
       currentCandidate.user?.id ??
-      (currentCandidate.user as any)?.user_id;
+      currentCandidate.user?.user_id;
 
     if (!candidateId) {
       console.error("Candidate Object missing ID field:", currentCandidate);
@@ -118,7 +121,7 @@ export default function CandidateDeckPage({
 
       {lastMatch && (
         <div className="mb-4 animate-bounce rounded-md bg-emerald-500/15 p-4 text-center font-bold text-emerald-600 dark:text-emerald-400">
-          🎉 IT'S A MATCH! Candidate interested in your job!
+          🎉 IT&apos;S A MATCH! Candidate interested in your job!
         </div>
       )}
 
@@ -126,7 +129,7 @@ export default function CandidateDeckPage({
         <div className="rounded-xl border border-dashed bg-card p-12 text-center">
           <h3 className="text-lg font-semibold">No more candidates</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            You've reviewed all candidates for this job posting.
+            You&apos;ve reviewed all candidates for this job posting.
           </p>
           <Link
             href="/recruiter/jobs"
@@ -166,7 +169,7 @@ export default function CandidateDeckPage({
                 Skills
               </h4>
               <div className="flex flex-wrap gap-1.5">
-                {currentCandidate.skills.map((skill: any, index: number) => {
+                {currentCandidate.skills.map((skill, index) => {
                   const skillName =
                     typeof skill === "string"
                       ? skill

@@ -1,3 +1,4 @@
+import type { CandidateCard, SwipeResult } from "./api.type";
 import { apiFetch } from "./client";
 
 // --- Types ---
@@ -78,7 +79,7 @@ export async function updateRecruiterJob(id: string, data: Partial<JobInput>) {
 
 /** ดึงรายการ Candidate Deck สำหรับงานนั้นๆ */
 export async function getCandidateDeck(jobId: string) {
-  return apiFetch<any[]>(`/recruiter/jobs/${jobId}/candidates`);
+  return apiFetch<CandidateCard[]>(`/recruiter/jobs/${jobId}/candidates`);
 }
 
 /** ปัดคัดเลือกผู้สมัคร (LIKE / SKIP) */
@@ -87,7 +88,7 @@ export async function swipeCandidate(
   candidateId: string,
   direction: "LIKE" | "SKIP"
 ) {
-  return apiFetch<{ matched: boolean }>(
+  return apiFetch<SwipeResult>(
     `/recruiter/jobs/${jobId}/candidates/${candidateId}/swipe`,
     {
       method: "POST",

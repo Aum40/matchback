@@ -3,6 +3,7 @@
 import { requireToken, toActionError } from "@/lib/actions/action-helpers";
 import { ErrorActionResult } from "@/lib/actions/action.type";
 import type {
+  Job,
   MatchExplanation,
   ResumeCoaching,
   SwipeDirection,
@@ -17,7 +18,7 @@ const jobIdSchema = z.string().trim().min(1).max(100);
 /** ดึงรายละเอียดงานตาม ID (สำหรับ Candidate ดูข้อมูลงาน) */
 export async function getJobDetailAction(
   jobId: string
-): Promise<{ success: true; data: any } | ErrorActionResult> {
+): Promise<{ success: true; data: Job } | ErrorActionResult> {
   const parsed = jobIdSchema.safeParse(jobId);
   if (!parsed.success) {
     return { success: false, message: "Invalid job ID", code: "VALIDATION_ERROR" };
@@ -25,7 +26,7 @@ export async function getJobDetailAction(
 
   const token = await requireToken();
   try {
-    const data = await apiFetch<any>(`/jobs/${parsed.data}`, { token });
+    const data = await apiFetch<Job>(`/jobs/${parsed.data}`, { token });
     return { success: true, data };
   } catch (error) {
     return toActionError(error);
