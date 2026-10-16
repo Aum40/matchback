@@ -13,6 +13,7 @@ const CANDIDATE_NAV = [
 const RECRUITER_NAV = [
   { href: "/recruiter/jobs", label: "My Jobs" },
   { href: "/recruiter/company", label: "Company Profile" },
+  { href: "/analytics", label: "Dashboard" }, // 💡 เพิ่มบรรทัดนี้เข้ามาสำหรับหน้า Analytics
 ];
 
 /** มือถือ: เมนูเลื่อนแนวนอนใต้โลโก้ จอใหญ่: อยู่แถวเดียวกัน */
