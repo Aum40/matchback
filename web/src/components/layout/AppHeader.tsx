@@ -86,9 +86,18 @@ export default function AppHeader({ name, role }: { name: string; role: Role }) 
             </span>
             MATCHBACK
           </Link>
-          <span className="ml-auto grid size-8 place-items-center rounded-full bg-navy text-xs font-bold text-background">
+          <span
+            className="ml-auto grid size-8 place-items-center rounded-full bg-navy text-xs font-bold text-background"
+            title={name}
+          >
             {name.slice(0, 1).toUpperCase()}
           </span>
+          {/* sidebar ที่มีปุ่ม Log out ซ่อนบนมือถือ — ไม่มีปุ่มนี้ = ออกจากระบบไม่ได้ */}
+          <form action={logoutAction}>
+            <Button type="submit" variant="outline" size="sm">
+              Log out
+            </Button>
+          </form>
         </div>
         <nav aria-label="Mobile main" className="flex gap-1 overflow-x-auto px-5 pb-3 text-sm">
           {items.map(({ href, label }) => (
