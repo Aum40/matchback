@@ -12,7 +12,15 @@ export default async function DiscoverPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  const token = session.user.access_token;
+  const user = session.user as { role?: string; access_token: string };
+
+  // 💡 ป้องกันไม่ให้บทบาท RECRUITER รันไปยิง API ฝั่ง Candidate ด้านล่าง
+  // หากเป็น RECRUITER ให้เปลี่ยนเส้นทางไปหน้าจัดการงานทันที
+  if (user.role === "RECRUITER") {
+    redirect("/recruiter/jobs");
+  }
+
+  const token = user.access_token;
   const [jobs, profile] = await Promise.all([
     JobsApi.discover(token),
     CandidatesApi.getProfile(token),

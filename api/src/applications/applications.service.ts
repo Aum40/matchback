@@ -24,8 +24,38 @@ export class ApplicationsService {
       select: APPLICATION_SELECT,
       orderBy: { updatedAt: 'desc' },
     });
+
+    // 💡 1. ดึงรายการ Job ID ที่ Recruiter เคยปัดสนใจ (LIKE) Candidate คนนี้ไว้
+    let likedJobIds = new Set<string>();
+    try {
+      const prismaAny = this.prisma as unknown as {
+        swipe?: {
+          findMany(args: {
+            where: { candidateId: string; action: string };
+            select: { jobId: true };
+          }): Promise<{ jobId: string }[]>;
+        };
+      };
+      if (prismaAny.swipe) {
+        const recruiterLikes = await prismaAny.swipe.findMany({
+          where: {
+            candidateId: userId,
+            action: 'LIKE',
+          },
+          select: { jobId: true },
+        });
+        likedJobIds = new Set(
+          recruiterLikes.map((s: { jobId: string }) => s.jobId),
+        );
+      }
+    } catch {
+      likedJobIds = new Set();
+    }
+
+    // 💡 2. แนบค่า isMatch: true ส่งกลับไป Frontend หาก Recruiter ปัดสนใจงานนี้แล้ว
     return applications.map(({ job, ...rest }) => ({
       ...rest,
+      isMatch: likedJobIds.has(job.id),
       job: toJobResponse(job),
     }));
   }

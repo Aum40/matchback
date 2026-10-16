@@ -3,23 +3,33 @@ import { logoutAction } from "@/lib/actions/auth.action";
 import type { Role } from "@/lib/api/api.type";
 import Link from "next/link";
 
-const NAV = [
+const CANDIDATE_NAV = [
   { href: "/discover", label: "Discover" },
   { href: "/saved", label: "Saved" },
   { href: "/applications", label: "Applications" },
   { href: "/profile", label: "Profile" },
 ];
 
+const RECRUITER_NAV = [
+  { href: "/recruiter/jobs", label: "My Jobs" },
+  { href: "/recruiter/company", label: "Company Profile" },
+  { href: "/analytics", label: "Dashboard" }, // 💡 เพิ่มบรรทัดนี้เข้ามาสำหรับหน้า Analytics
+];
+
 /** มือถือ: เมนูเลื่อนแนวนอนใต้โลโก้ จอใหญ่: อยู่แถวเดียวกัน */
 export default function AppHeader({ name, role }: { name: string; role: Role }) {
+  const isRecruiter = role === "RECRUITER";
+  const navItems = isRecruiter ? RECRUITER_NAV : CANDIDATE_NAV;
+  const homeHref = isRecruiter ? "/recruiter/jobs" : "/discover";
+
   return (
-    <header className="border-b">
+    <header className="border-b bg-background">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-        <Link href="/discover" className="font-bold tracking-tight">
+        <Link href={homeHref} className="font-bold tracking-tight">
           MATCHBACK
         </Link>
         <div className="ml-auto flex items-center gap-3 text-sm sm:order-last">
-          <span className="hidden text-muted-foreground sm:inline">{name}</span>
+          <span className="text-sm font-medium text-muted-foreground">{name}</span>
           <form action={logoutAction}>
             <Button type="submit" variant="outline" size="sm">
               Log out
@@ -30,7 +40,7 @@ export default function AppHeader({ name, role }: { name: string; role: Role }) 
           aria-label="Main"
           className="-mx-4 flex w-full gap-1 overflow-x-auto px-4 text-sm sm:mx-0 sm:w-auto sm:px-0"
         >
-          {NAV.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

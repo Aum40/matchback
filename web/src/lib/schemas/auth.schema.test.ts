@@ -6,12 +6,21 @@ const valid = {
   email: "ann@example.com",
   password: "Passw0rd!",
   confirmPassword: "Passw0rd!",
+  accountType: "CANDIDATE",
 };
 
 /** กฎรหัสผ่านต้องตรงกับ @StrongPassword() ฝั่ง API ไม่งั้นฟอร์มผ่านแต่ API ตอบ 400 */
 describe("signupSchema", () => {
   it("accepts a valid signup", () => {
     expect(signupSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("accepts recruiter signup", () => {
+    expect(signupSchema.safeParse({ ...valid, accountType: "RECRUITER" }).success).toBe(true);
+  });
+
+  it("rejects choosing the admin role", () => {
+    expect(signupSchema.safeParse({ ...valid, accountType: "ADMIN" }).success).toBe(false);
   });
 
   it.each([

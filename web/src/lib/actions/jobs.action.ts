@@ -3,19 +3,39 @@
 import { requireToken, toActionError } from "@/lib/actions/action-helpers";
 import { ErrorActionResult } from "@/lib/actions/action.type";
 import type {
+  Job,
   MatchExplanation,
   ResumeCoaching,
   SwipeDirection,
 } from "@/lib/api/api.type";
 import { JobsApi } from "@/lib/api/jobs.api";
+import { apiFetch } from "@/lib/api/api-fetch";
 import { revalidatePath } from "next/cache";
 import z from "zod";
 
 const jobIdSchema = z.string().trim().min(1).max(100);
 
+/** ดึงรายละเอียดงานตาม ID (สำหรับ Candidate ดูข้อมูลงาน) */
+export async function getJobDetailAction(
+  jobId: string
+): Promise<{ success: true; data: Job } | ErrorActionResult> {
+  const parsed = jobIdSchema.safeParse(jobId);
+  if (!parsed.success) {
+    return { success: false, message: "Invalid job ID", code: "VALIDATION_ERROR" };
+  }
+
+  const token = await requireToken();
+  try {
+    const data = await apiFetch<Job>(`/jobs/${parsed.data}`, { token });
+    return { success: true, data };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
 export async function swipeAction(
   jobId: string,
-  direction: SwipeDirection,
+  direction: SwipeDirection
 ): Promise<{ success: true } | ErrorActionResult> {
   const parsed = z
     .object({ jobId: jobIdSchema, direction: z.enum(["LIKE", "SKIP"]) })
@@ -30,7 +50,6 @@ export async function swipeAction(
   } catch (error) {
     return toActionError(error);
   }
-  // ไม่ revalidate /discover: การ์ดหายจากกองฝั่ง client อยู่แล้ว ถ้าโหลดใหม่ทั้งหน้าจะกระตุก
   revalidatePath("/saved");
   revalidatePath("/applications");
   return { success: true };
@@ -43,7 +62,7 @@ export async function resetSwipesAction(): Promise<void> {
 }
 
 export async function explainMatchAction(
-  jobId: string,
+  jobId: string
 ): Promise<{ success: true; data: MatchExplanation } | ErrorActionResult> {
   const parsed = jobIdSchema.safeParse(jobId);
   if (!parsed.success) {
@@ -59,7 +78,7 @@ export async function explainMatchAction(
 }
 
 export async function coachResumeAction(
-  jobId: string,
+  jobId: string
 ): Promise<{ success: true; data: ResumeCoaching } | ErrorActionResult> {
   const parsed = jobIdSchema.safeParse(jobId);
   if (!parsed.success) {
