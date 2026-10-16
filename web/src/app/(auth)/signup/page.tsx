@@ -1,9 +1,9 @@
 import AuthCard from "@/components/features/auth/AuthCard";
+import AuthSwapLink from "@/components/features/auth/AuthSwapLink";
 import SignupForm from "@/components/features/auth/SignupForm";
 import type { Metadata } from "next";
-import Link from "next/link";
 
-export const metadata: Metadata = { title: "Sign up" };
+export const metadata: Metadata = { title: "Create your account · MATCHBACK" };
 
 export default function SignupPage() {
   return (
@@ -13,9 +13,13 @@ export default function SignupPage() {
       description={
         <>
           Already have an account?{" "}
-          <Link href="/login" className="font-medium underline">
+          <AuthSwapLink
+            href="/login"
+            direction="right"
+            className="font-semibold text-brand underline decoration-brand/30 underline-offset-4 transition hover:text-navy"
+          >
             Log in
-          </Link>
+          </AuthSwapLink>
         </>
       }
     >
