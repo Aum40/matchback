@@ -27,6 +27,8 @@ export default async function JobDetailPage({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
+  if (session.user.role === "RECRUITER") redirect("/recruiter");
+  if (session.user.role === "ADMIN") redirect("/admin");
   const { id } = await params;
 
   let data;
@@ -41,10 +43,10 @@ export default async function JobDetailPage({
   return (
     <div className="grid gap-6">
       <Link href="/discover" className="text-sm text-muted-foreground hover:underline">
-        ← Back to Discover
+        Back to Discover
       </Link>
 
-      <JobCard job={job} score={match.score} skillStates={statesFrom(match)} skillLimit={20}>
+      <JobCard job={job} score={match.score} skillStates={statesFrom(match)} skillLimit={20} showDescription={false}>
         <section className="space-y-2">
           <h2 className="text-sm font-semibold">About the job</h2>
           <p className="text-sm whitespace-pre-line text-muted-foreground">

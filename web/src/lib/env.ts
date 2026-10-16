@@ -13,6 +13,10 @@ const envSchema = z.object({
   /** ไม่ตั้งทั้งคู่ = ปิดล็อกอินด้วย Google (ซ่อนปุ่ม) */
   GOOGLE_CLIENT_ID: optionalString,
   GOOGLE_CLIENT_SECRET: optionalString,
+  DEMO_CANDIDATE_EMAIL: optionalString,
+  DEMO_CANDIDATE_PASSWORD: optionalString,
+  DEMO_RECRUITER_EMAIL: optionalString,
+  DEMO_RECRUITER_PASSWORD: optionalString,
   /**
    * รหัสลับร่วมกับ API (ค่าเดียวกับ INTERNAL_API_SECRET ของ API) API จะเชื่อ IP ผู้ใช้ที่ส่งไป
    * ไม่ตั้ง (dev) = ส่ง IP ผ่าน X-Forwarded-For แทน (API เชื่อเพราะอยู่เครื่องเดียวกัน)
@@ -25,6 +29,10 @@ const parsed = envSchema.safeParse({
   AUTH_SECRET: process.env.AUTH_SECRET,
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  DEMO_CANDIDATE_EMAIL: process.env.DEMO_CANDIDATE_EMAIL,
+  DEMO_CANDIDATE_PASSWORD: process.env.DEMO_CANDIDATE_PASSWORD,
+  DEMO_RECRUITER_EMAIL: process.env.DEMO_RECRUITER_EMAIL,
+  DEMO_RECRUITER_PASSWORD: process.env.DEMO_RECRUITER_PASSWORD,
   INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET,
 });
 
@@ -38,3 +46,8 @@ export const env = parsed.data;
 export const googleEnabled = Boolean(
   env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
 );
+
+export const demoLoginEnabled = {
+  candidate: Boolean(env.DEMO_CANDIDATE_EMAIL && env.DEMO_CANDIDATE_PASSWORD),
+  recruiter: Boolean(env.DEMO_RECRUITER_EMAIL && env.DEMO_RECRUITER_PASSWORD),
+};

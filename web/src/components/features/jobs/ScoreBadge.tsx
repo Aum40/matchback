@@ -2,8 +2,8 @@ import { scoreLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * คะแนนความเข้ากัน 0-100 — ใช้คำว่า "match" เสมอ ห้ามเขียนเป็น % หรือ "chance"
- * เพราะคะแนนนี้ไม่ใช่โอกาสได้งาน (ดู api/src/matching/match-score.ts)
+ * คะแนนความเข้ากัน 0-100 — แสดงเป็น profile fit ไม่ใช่ % หรือโอกาสได้งาน
+ * (ดู api/src/matching/match-score.ts)
  */
 export default function ScoreBadge({
   score,
@@ -26,7 +26,7 @@ export default function ScoreBadge({
         size === "lg" ? "size-24" : "size-16",
         tone,
       )}
-      aria-label={`Match score ${score} out of 100, ${scoreLabel(score)}`}
+      aria-label={`Profile fit ${score} out of 100, ${scoreLabel(score)}`}
     >
       <span
         className={cn(
@@ -36,9 +36,7 @@ export default function ScoreBadge({
       >
         {score}
       </span>
-      <span className="mt-1 text-[0.65rem] font-medium uppercase">
-        {scoreLabel(score)}
-      </span>
+      <span className="mt-1 text-[0.65rem] font-medium uppercase">Profile fit</span>
     </div>
   );
 }

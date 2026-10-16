@@ -1,10 +1,12 @@
 import AuthCard from "@/components/features/auth/AuthCard";
+import AuthSwapLink from "@/components/features/auth/AuthSwapLink";
+import DemoLoginButtons from "@/components/features/auth/DemoLoginButtons";
 import LoginForm from "@/components/features/auth/LoginForm";
+import { demoLoginEnabled } from "@/lib/env";
 import { redirectErrorMessage } from "@/lib/login-errors";
 import type { Metadata } from "next";
-import Link from "next/link";
 
-export const metadata: Metadata = { title: "Log in" };
+export const metadata: Metadata = { title: "Log in · MATCHBACK" };
 
 export default async function LoginPage({
   searchParams,
@@ -20,13 +22,18 @@ export default async function LoginPage({
       description={
         <>
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-medium underline">
+          <AuthSwapLink
+            href="/signup"
+            direction="left"
+            className="font-semibold text-brand underline decoration-brand/30 underline-offset-4 transition hover:text-navy"
+          >
             Sign up
-          </Link>
+          </AuthSwapLink>
         </>
       }
     >
       <LoginForm initialError={redirectErrorMessage(error)} />
+      <DemoLoginButtons enabled={demoLoginEnabled} />
     </AuthCard>
   );
 }

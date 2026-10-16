@@ -1,7 +1,8 @@
 "use server";
 
 import { ErrorActionResult } from "@/lib/actions/action.type";
-import { signIn, signOut } from "@/lib/auth";
+import { auth, signIn, signOut } from "@/lib/auth";
+import { env } from "@/lib/env";
 import { loginErrorMessage } from "@/lib/login-errors";
 import {
   LoginInput,
@@ -13,9 +14,12 @@ import { CredentialsSignin } from "next-auth";
 import { redirect } from "next/navigation";
 import z from "zod";
 
+const demoRoleSchema = z.enum(["candidate", "recruiter"]);
+
 /** ล็อกอินและสมัครจบเหมือนกัน: ผ่านแล้วไปหน้า Discover ไม่ผ่านคืน code ให้ฟอร์มแสดง */
 async function signInWithCredentials(
   fields: Record<string, string>,
+  redirectTo = "/discover",
 ): Promise<ErrorActionResult | void> {
   try {
     await signIn("credentials", { ...fields, redirect: false });
@@ -27,13 +31,18 @@ async function signInWithCredentials(
     throw error;
   }
 
-  redirect("/discover");
+  redirect(redirectTo);
 }
 
 export async function loginAction(
   input: LoginInput,
 ): Promise<ErrorActionResult | void> {
-  return signInWithCredentials(input);
+  const err = await signInWithCredentials(input, "/discover");
+  if (err) return err;
+
+  const session = await auth();
+  const role = session?.user?.role || (session?.user as { accountType?: string } | undefined)?.accountType;
+  redirect(role === "RECRUITER" ? "/recruiter/jobs" : "/discover");
 }
 
 export async function registerAction(
@@ -50,11 +59,45 @@ export async function registerAction(
     };
   }
 
-  return signInWithCredentials({ ...parsed.data, intent: "register" });
+  return signInWithCredentials(
+    { ...parsed.data, intent: "register" },
+    parsed.data.accountType === "RECRUITER" ? "/recruiter/jobs" : "/discover",
+  );
 }
 
 export async function loginWithGoogleAction(): Promise<void> {
   await signIn("google", { redirectTo: "/discover" });
+}
+
+export async function demoLoginAction(
+  role: "candidate" | "recruiter",
+): Promise<ErrorActionResult | void> {
+  const parsedRole = demoRoleSchema.safeParse(role);
+  if (!parsedRole.success) {
+    return {
+      success: false,
+      message: "Invalid demo account.",
+      code: "VALIDATION_ERROR",
+    };
+  }
+
+  const credentials =
+    parsedRole.data === "candidate"
+      ? { email: env.DEMO_CANDIDATE_EMAIL, password: env.DEMO_CANDIDATE_PASSWORD }
+      : { email: env.DEMO_RECRUITER_EMAIL, password: env.DEMO_RECRUITER_PASSWORD };
+
+  if (!credentials.email || !credentials.password) {
+    return {
+      success: false,
+      message: "This demo account is not configured.",
+      code: "DEMO_NOT_CONFIGURED",
+    };
+  }
+
+  return signInWithCredentials(
+    { email: credentials.email, password: credentials.password },
+    parsedRole.data === "recruiter" ? "/recruiter/jobs" : "/discover",
+  );
 }
 
 export async function logoutAction(): Promise<void> {

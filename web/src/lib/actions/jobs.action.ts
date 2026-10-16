@@ -6,17 +6,37 @@ import type {
   MatchExplanation,
   ResumeCoaching,
   SwipeDirection,
+  SwipeResult,
 } from "@/lib/api/api.type";
 import { JobsApi } from "@/lib/api/jobs.api";
+import { apiFetch } from "@/lib/api/api-fetch";
 import { revalidatePath } from "next/cache";
 import z from "zod";
 
 const jobIdSchema = z.string().trim().min(1).max(100);
 
+/** ดึงรายละเอียดงานตาม ID (สำหรับ Candidate ดูข้อมูลงาน) */
+export async function getJobDetailAction(
+  jobId: string,
+): Promise<{ success: true; data: any } | ErrorActionResult> {
+  const parsed = jobIdSchema.safeParse(jobId);
+  if (!parsed.success) {
+    return { success: false, message: "Invalid job ID", code: "VALIDATION_ERROR" };
+  }
+
+  const token = await requireToken();
+  try {
+    const data = await apiFetch<any>(`/jobs/${parsed.data}`, { token });
+    return { success: true, data };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
 export async function swipeAction(
   jobId: string,
   direction: SwipeDirection,
-): Promise<{ success: true } | ErrorActionResult> {
+): Promise<SwipeResult | ErrorActionResult> {
   const parsed = z
     .object({ jobId: jobIdSchema, direction: z.enum(["LIKE", "SKIP"]) })
     .safeParse({ jobId, direction });
@@ -26,14 +46,14 @@ export async function swipeAction(
 
   const token = await requireToken();
   try {
-    await JobsApi.swipe(parsed.data.jobId, parsed.data.direction, token);
+    const result = await JobsApi.swipe(parsed.data.jobId, parsed.data.direction, token);
+    revalidatePath("/saved");
+    revalidatePath("/applications");
+    revalidatePath("/matches");
+    return result;
   } catch (error) {
     return toActionError(error);
   }
-  // ไม่ revalidate /discover: การ์ดหายจากกองฝั่ง client อยู่แล้ว ถ้าโหลดใหม่ทั้งหน้าจะกระตุก
-  revalidatePath("/saved");
-  revalidatePath("/applications");
-  return { success: true };
 }
 
 export async function resetSwipesAction(): Promise<void> {

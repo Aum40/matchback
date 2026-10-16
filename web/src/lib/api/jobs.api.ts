@@ -7,6 +7,7 @@ import type {
   ResumeCoaching,
   Skill,
   SwipeDirection,
+  SwipeResult,
 } from "@/lib/api/api.type";
 
 export const JobsApi = {
@@ -25,7 +26,7 @@ export const JobsApi = {
   },
 
   swipe(id: string, direction: SwipeDirection, token: string) {
-    return apiFetch<{ jobId: string; direction: SwipeDirection }>(
+    return apiFetch<SwipeResult>(
       `/jobs/${encodeURIComponent(id)}/swipe`,
       { method: "POST", body: { direction }, token },
     );

@@ -17,7 +17,7 @@ export const ApplicationsApi = {
   },
 
   remove(id: string, token: string) {
-    return apiFetch<{ id: string }>(`/applications/${encodeURIComponent(id)}`, {
+    return apiFetch<{ id: string; deleted: boolean }>(`/applications/${encodeURIComponent(id)}`, {
       method: "DELETE",
       token,
     });

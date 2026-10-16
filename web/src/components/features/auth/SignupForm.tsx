@@ -14,10 +14,14 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { registerAction } from "@/lib/actions/auth.action";
 import { SignupInput, signupSchema } from "@/lib/schemas/auth.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRight, Building2, Check, UserRound } from "lucide-react";
 import { useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
 
-type FieldName = keyof SignupInput;
+type FieldName = Extract<
+  keyof SignupInput,
+  "name" | "email" | "password" | "confirmPassword"
+>;
 
 const FIELDS: {
   name: FieldName;
@@ -42,6 +46,21 @@ const FIELDS: {
   },
 ];
 
+const ROLE_OPTIONS = [
+  {
+    value: "CANDIDATE" as const,
+    label: "I'm looking for work",
+    description: "Create a profile and explore roles.",
+    icon: UserRound,
+  },
+  {
+    value: "RECRUITER" as const,
+    label: "I'm hiring",
+    description: "Post roles and review candidates.",
+    icon: Building2,
+  },
+];
+
 export default function SignupForm() {
   const {
     control,
@@ -50,7 +69,13 @@ export default function SignupForm() {
     formState: { errors },
   } = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      accountType: "CANDIDATE",
+    },
   });
 
   const [isPending, startTransition] = useTransition();
@@ -60,7 +85,6 @@ export default function SignupForm() {
       const result = await registerAction(data);
       if (!result) return;
 
-      // อีเมลซ้ำ: ชี้ไปที่ช่องอีเมลตรง ๆ แทน error ลอย ๆ บนฟอร์ม
       if (result.code === "EMAIL_TAKEN") {
         setError("email", { message: result.message });
         return;
@@ -71,8 +95,63 @@ export default function SignupForm() {
 
   return (
     <form method="post" onSubmit={handleSubmit(onSubmit)} noValidate>
-      <FieldGroup className="gap-4">
+      <FieldGroup className="auth-form-fields gap-5">
         {errors.root?.message && <FormAlert message={errors.root.message} />}
+
+        <Controller
+          control={control}
+          name="accountType"
+          render={({ field }) => (
+            <Field className="gap-2">
+              <div>
+                <FieldLabel required>I&apos;m joining as</FieldLabel>
+                <p className="mt-1 text-sm text-muted-foreground">Choose one to continue.</p>
+              </div>
+
+              <div className="grid gap-3 pt-1 sm:grid-cols-2">
+                {ROLE_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = field.value === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => field.onChange(option.value)}
+                      aria-pressed={isSelected}
+                      className={`group relative min-h-28 rounded-2xl border p-4 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                        isSelected
+                          ? "border-brand bg-brand-soft text-navy"
+                          : "border-border/80 bg-background text-foreground hover:border-brand/35 hover:bg-muted/40"
+                      }`}
+                    >
+                      <span
+                        className={`grid size-10 place-items-center rounded-xl transition ${
+                          isSelected
+                            ? "bg-brand text-brand-foreground"
+                            : "bg-muted text-muted-foreground group-hover:bg-brand-soft group-hover:text-brand"
+                        }`}
+                      >
+                        <Icon aria-hidden="true" className="size-5" />
+                      </span>
+                      <span className="mt-3 block text-sm font-semibold tracking-tight">
+                        {option.label}
+                      </span>
+                      <span className="mt-1 block max-w-[17rem] text-xs leading-5 text-muted-foreground">
+                        {option.description}
+                      </span>
+                      {isSelected && (
+                        <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-brand text-brand-foreground">
+                          <Check aria-hidden="true" className="size-3.5" />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+          )}
+        />
 
         {FIELDS.map((config) => (
           <Controller
@@ -85,7 +164,7 @@ export default function SignupForm() {
                   ? PasswordInput
                   : Input;
               return (
-                <Field className="gap-1" data-invalid={fieldState.invalid}>
+                <Field className="gap-2" data-invalid={fieldState.invalid}>
                   <FieldLabel required htmlFor={field.name}>
                     {config.label}
                   </FieldLabel>
@@ -94,6 +173,7 @@ export default function SignupForm() {
                     type={config.type}
                     autoComplete={config.autoComplete}
                     {...field}
+                    value={field.value ?? ""}
                     aria-invalid={fieldState.invalid}
                   />
                   {config.description && !fieldState.invalid && (
@@ -108,8 +188,14 @@ export default function SignupForm() {
           />
         ))}
 
-        <Button type="submit" size="lg" disabled={isPending}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={isPending}
+          className="mt-1 w-full rounded-2xl"
+        >
           {isPending ? "Creating account..." : "Create account"}
+          {!isPending && <ArrowRight aria-hidden="true" />}
         </Button>
       </FieldGroup>
     </form>
