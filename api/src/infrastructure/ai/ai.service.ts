@@ -133,8 +133,9 @@ export class AiService {
       // ผู้ใช้จึงพิมพ์ "context ปลอม" มาทับข้อมูลจริงไม่ได้
       systemInstruction: `${RULES}\n\n${withContext(ASSISTANT_TASK, context)}`,
       maxOutputTokens: ASSISTANT_MAX_OUTPUT_TOKENS,
-      // เพดาน 1,200 token รวม thinking ด้วย: คิดน้อยสุด ไม่งั้นคำตอบถูกตัด (MAX_TOKENS) แล้วตกไป fallback บ่อย
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      // เพดาน 1,200 token รวม thinking ด้วย จึงคิดให้น้อยที่สุดที่ model รองรับ
+      // (gemini-3.8-flash ไม่รับ MINIMAL — ตอบ 400 แล้วตกไป fallback ทุกครั้ง)
+      thinkingLevel: ThinkingLevel.LOW,
     });
     return result
       ? { reply: result.reply, source: 'ai' }
