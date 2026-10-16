@@ -8,7 +8,12 @@ import { loginWithGoogleAction } from "@/lib/actions/auth.action";
 export default function GoogleButton({ label }: { label: string }) {
   return (
     <form action={loginWithGoogleAction}>
-      <Button type="submit" variant="outline" size="lg" className="w-full">
+      <Button
+        type="submit"
+        variant="outline"
+        size="lg"
+        className="h-12 w-full rounded-xl border-border/80 bg-background hover:border-brand/30 hover:bg-muted/40"
+      >
         <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
           <path
             fill="#4285F4"

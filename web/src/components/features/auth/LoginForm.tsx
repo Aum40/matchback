@@ -13,6 +13,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { loginAction } from "@/lib/actions/auth.action";
 import { LoginInput, loginSchema } from "@/lib/schemas/auth.schema";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRight } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { Controller, useForm } from "react-hook-form";
 
@@ -54,7 +55,7 @@ export default function LoginForm({
 
   return (
     <form method="post" onSubmit={handleSubmit(onSubmit)} noValidate>
-      <FieldGroup className="gap-4">
+      <FieldGroup className="auth-form-fields gap-5">
         {rootError && <FormAlert message={rootError} />}
 
         <Controller
@@ -97,8 +98,14 @@ export default function LoginForm({
           )}
         />
 
-        <Button type="submit" size="lg" disabled={isPending}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={isPending}
+          className="h-12 w-full rounded-2xl shadow-lg shadow-brand/15"
+        >
           {isPending ? "Logging in..." : "Log in"}
+          {!isPending && <ArrowRight aria-hidden="true" />}
         </Button>
       </FieldGroup>
     </form>
