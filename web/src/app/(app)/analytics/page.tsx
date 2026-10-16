@@ -74,7 +74,8 @@ export default function AnalyticsDashboardPage() {
       <header>
         <h1 className="text-3xl font-bold">MATCHBACK Insights & Dashboard</h1>
         <p className="text-muted-foreground mt-1">
-          เปรียบเทียบความต้องการทักษะ เงินเดือน และรูปแบบการทำงานระหว่าง Employer และ Candidate
+          Compare skill demand, salaries and work arrangements between employers and
+          candidates. Figures on this page are sample demo data.
         </p>
       </header>
 
