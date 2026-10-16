@@ -12,16 +12,10 @@ export const metadata: Metadata = { title: "Discover jobs" };
 export default async function DiscoverPage() {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role === "RECRUITER") redirect("/recruiter");
+  if (session.user.role === "RECRUITER") redirect("/recruiter/jobs");
   if (session.user.role === "ADMIN") redirect("/admin");
 
   const user = session.user as { role?: string; access_token: string };
-
-  // 💡 ป้องกันไม่ให้บทบาท RECRUITER รันไปยิง API ฝั่ง Candidate ด้านล่าง
-  // หากเป็น RECRUITER ให้เปลี่ยนเส้นทางไปหน้าจัดการงานทันที
-  if (user.role === "RECRUITER") {
-    redirect("/recruiter/jobs");
-  }
 
   const token = user.access_token;
   const [jobs, profile] = await Promise.all([

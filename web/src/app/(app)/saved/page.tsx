@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Saved jobs" };
 export default async function SavedPage() {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role === "RECRUITER") redirect("/recruiter");
+  if (session.user.role === "RECRUITER") redirect("/recruiter/jobs");
   if (session.user.role === "ADMIN") redirect("/admin");
 
   const saved = await ApplicationsApi.findAll(session.user.access_token, "INTERESTED");

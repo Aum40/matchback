@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Applications" };
 export default async function ApplicationsPage() {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role === "RECRUITER") redirect("/recruiter");
+  if (session.user.role === "RECRUITER") redirect("/recruiter/jobs");
   if (session.user.role === "ADMIN") redirect("/admin");
 
   const all = await ApplicationsApi.findAll(session.user.access_token);

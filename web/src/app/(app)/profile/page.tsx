@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Your profile" };
 export default async function ProfilePage() {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role === "RECRUITER") redirect("/recruiter");
+  if (session.user.role === "RECRUITER") redirect("/recruiter/jobs");
   if (session.user.role === "ADMIN") redirect("/admin");
 
   const [profile, skills] = await Promise.all([

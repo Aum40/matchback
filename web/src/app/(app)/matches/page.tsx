@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Matches" };
 export default async function MatchesPage() {
   const session = await auth();
   if (!session) redirect("/login");
-  if (session.user.role === "RECRUITER") redirect("/recruiter/matches");
+  if (session.user.role === "RECRUITER") redirect("/recruiter/jobs");
   if (session.user.role === "ADMIN") redirect("/admin");
 
   let matches: MutualMatch[];
