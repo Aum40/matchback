@@ -139,7 +139,7 @@ Never commit `.env` files, API keys, secrets, or real personal data. Do not push
 
 ## Deploying
 
-Step-by-step for Neon + Render + Vercel: **[docs/deploy.md](docs/deploy.md)**. The API uses the [`render.yaml`](render.yaml) Blueprint.
+The live demo runs on **Railway** (API and PostgreSQL) and **Vercel** (web): [matchback-web-taupe.vercel.app](https://matchback-web-taupe.vercel.app). Step-by-step for Railway + Vercel: **[docs/deploy.md](docs/deploy.md)**.
 
 - **API:** run `pnpm build && pnpm prisma migrate deploy && pnpm db:seed`, then `pnpm start:prod`. Set:
   - `NODE_ENV=production` and the Brevo mail settings (`BREVO_API_KEY` and `MAIL_FROM`, required in production)

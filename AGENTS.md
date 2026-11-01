@@ -141,7 +141,7 @@ web/
   src/lib/auth.ts, proxy.ts      next-auth config; access-token refresh
   src/app/(auth)/ (app)/         login/signup; logged-in pages (recruiter area planned under (app)/recruiter)
 docs/                            api-contract, team-ownership, team-tasks, two-sided-plan, architecture, deploy
-render.yaml                      Render Blueprint for the API (see docs/deploy.md)
+render.yaml                      Render Blueprint, not used (the live demo is on Railway + Vercel, see docs/deploy.md)
 ```
 
 ## 5. Architecture boundaries
